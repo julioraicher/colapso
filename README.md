@@ -24,7 +24,7 @@ Todas as versões: [Releases](https://github.com/julioraicher/colapso/releases).
 | Z ou T | marcar inimigo (spot) | TAB | placar |
 | P | mostrar FPS | ESC | pausa |
 | **H** ou F1 | todos os controles (teclado e mouse desenhados) | **M** | mapa tático |
-| B | inspecionar a arma | | |
+| B | inspecionar a arma | **V** | faca (letal pelas costas, quebra vidro) |
 
 Na tela de implantação: 1–4 escolhe a classe, ESPAÇO/ENTER entra em combate.
 
@@ -61,7 +61,7 @@ As duas conversam com a destruição: explodir uma parede grossa a deixa fina o 
 - **Progressão**: medalhas (multi-kill, tiro longo > 50 m, headshot, kill pelo eco, kill saindo do túnel, sequências), XP por partida e 10 patentes de RECRUTA a GENERAL QUÂNTICO; loadout salvo entre partidas; 3 níveis de dificuldade.
 - **Mapa detalhado**: 15 veículos estacionados com faróis que iluminam o chão, letreiros neon (KAPPA, LAB, HANGAR, OMEGA), torre de sniper com passarela até o 3º andar do laboratório, servidores piscando, radar no telhado, caixa d'água, pátio de geradores, poças, calçadas, cercas e **25 barris explosivos** que explodem em cadeia.
 - **Gráficos mais realistas sem custo**: halo de luz (*bloom* falso) em volta de cada lâmpada e reflexo alongado no asfalto molhado, tudo em 2 *draw calls*, reconstruído só quando uma lâmpada é destruída.
-- **Áudio 100% procedural** (WebAudio): tiros = estalo supersônico + blast + *thump*; propagação com **atraso c = 343 m/s**, absorção do ar (passa-baixa ∝ distância), lei do inverso da distância, reverb por resposta ao impulso sintética. Trovões chegam atrasados conforme a distância do relâmpago.
+- **Áudio com gravações reais (v3)**: 290 sons em 118 grupos, todos de gravações livres. Tiro próprio para cada uma das 14 armas (com variações para não soar metralhadora de videogame), recarga cronometrada com a animação (pente, ferrolho, cinto, tambor, cartucho a cartucho), passos por superfície (concreto, metal, madeira, terra, grama, água, vidro), impactos por material, ricochetes, balas passando, explosões diferentes para granada, foguete, barril e reator, trovões, chuva (muda quando você entra em um prédio), vento, batalha ao longe e **trilha adaptativa** (menu, tensão quando um ponto é disputado ou os tickets acabam, vinhetas de vitória e derrota). Motor próprio em WebAudio: barramentos com compressor e limitador, 40 vozes com prioridade, **atraso de propagação c = 343 m/s**, absorção do ar, **oclusão por *ray-march* nos voxels** (tiro atrás da parede soa abafado), tiro distante troca para gravação de longe, reverb de sala ou de rua conforme o teto acima de você, zumbido no ouvido após explosão próxima e batimento cardíaco com vida baixa. Tudo embutido no `game.js` (roda offline, sem `fetch`).
 - **Bots**: A* em grade 2,5D, busca de cobertura quando feridos/suprimidos/recarregando, percepção com linha de visada, tempo de reação, erro de mira que converge, rajadas, *strafe*, agachar, granadas balísticas contra quem se esconde, objetivo de conquista, *rubber-band* de dificuldade.
 - **Evento de mapa**: quando os tickets caem, o reator central entra em sobrecarga (sirene + contagem de 20 s) e explode em cadeia, remodelando o centro do mapa e apagando sua luz.
 - **Luz dinâmica destrutível**: atire nas lâmpadas para escurecer uma sala (a luz é recalculada localmente por BFS).
@@ -80,6 +80,6 @@ npm run package        # out/Colapso-windows.zip (Electron win32-x64)
 
 Um commit em `main` com `[release]` na mensagem (ou execução manual do workflow) dispara o GitHub Actions que empacota e publica a release.
 
-Estrutura: `src/world.js` (voxels, luz, destruição, raycast DDA), `src/mapgen.js` (mapa procedural), `src/player.js`, `src/weapons.js` (tabela de armas), `src/kit.js` (kit pixel-art), `src/guns.js` (modelos), `src/viewmodel.js` (primeira pessoa), `src/soldier.js` (soldados), `src/ai.js`, `src/abilities.js`, `src/audio.js`, `src/fx.js`, `src/hud.js` + `src/ui-icons.js`, `src/main.js`.
+Estrutura: `src/world.js` (voxels, luz, destruição, raycast DDA), `src/mapgen.js` (mapa procedural), `src/player.js`, `src/weapons.js` (tabela de armas), `src/kit.js` (kit pixel-art), `src/guns.js` (modelos), `src/viewmodel.js` (primeira pessoa), `src/soldier.js` (soldados), `src/ai.js`, `src/abilities.js`, `src/audio.js` + `src/sounds/` (gerado por `tools/audio/build-sounds.mjs`), `src/fx.js`, `src/hud.js` + `src/ui-icons.js`, `src/main.js`.
 
-Tudo é procedural ou código próprio; única dependência de runtime: [three.js](https://threejs.org) (MIT).
+Gráficos e mapa são procedurais (código próprio); única dependência de runtime: [three.js](https://threejs.org) (MIT). O áudio usa gravações de acervos livres (Soldat base assets e Oculus Audio Pack, CC BY 4.0, modificadas; Kenney, Sonic Pi e trilha de Rafael Krux/FreePD, CC0): a lista por arquivo, com autores, licenças e modificações, está em [CREDITS.md](CREDITS.md) e na tela COMO JOGAR do jogo.

@@ -6,6 +6,7 @@ import { SX, SZ, SY, VS, MATDEF, MAT } from './world.js';
 import { WEAPONS, SECONDARIES, CLASSES, buildGun } from './weapons.js';
 import { scanTunnel } from './abilities.js';
 import { BASES } from './mapgen.js';
+import { AUDIO_CREDITS } from './audio.js';
 import { IC, kc, keycapify, esc, clsIcon, GADGET_IC, keyboardHTML, cheatHTML, RANKS, rankOf } from './ui-icons.js';
 export { RANKS, rankOf };
 
@@ -100,7 +101,7 @@ export class HUD {
     E('hud').classList.toggle('behind', !!id && id !== 'score');
     if (id) this.setMap(false);
     if (id === 'menu') { this.rankBar(null, 'menuxp', 'menuxpb'); setH(E('menukeys'), ESS.map(([k, t]) => `<div><span class="ek">${k}</span>${t}</div>`).join('')); }
-    else if (id === 'how') E('howkbd').innerHTML = keyboardHTML(g);
+    else if (id === 'how') { E('howkbd').innerHTML = keyboardHTML(g); E('credits').innerHTML = '<b>CRÉDITOS DE ÁUDIO</b> · gravações de acervos livres, modificadas (corte, nível, camadas, afinação): ' + AUDIO_CREDITS.map(c => `${esc(c.pack)} (${esc(c.author)}, ${esc(c.licence)})`).join(' · ') + ' · Gráficos: three.js (MIT). Lista completa por arquivo em CREDITS.md no repositório.'; }
     else if (id === 'keys') E('keyskbd').innerHTML = keyboardHTML(g);
     else if (id === 'pause') E('pausekeys').innerHTML = cheatHTML(g);
     else if (id === 'opts') this.fillOpts();
@@ -165,6 +166,7 @@ export class HUD {
     };
     bind('oSens', 'sens', 1, v => (+v).toFixed(2)); bind('oAds', 'adsSens', 0.7, v => (+v).toFixed(2)); bind('oFov', 'fov', 78, v => v + '°');
     bind('oVol', 'vol', 0.8, v => Math.round(v * 100) + '%', () => g.audio.setVolume(s.vol));
+    bind('oMus', 'music', 0.6, v => Math.round(v * 100) + '%', () => g.audio.setMusicVolume(s.music));
     bind('oHud', 'hudScale', 1, v => Math.round(v * 100) + '%', () => this.applyUi());
     $('oQ').value = s.quality; $('oQ').onchange = () => { s.quality = $('oQ').value; g.scale = s.quality === 'low' ? 0.6 : s.quality === 'high' ? 1 : 0.85; g.resize(); g.saveSettings(); };
     $('oInv').checked = !!s.invert; $('oInv').onchange = () => { s.invert = $('oInv').checked; g.saveSettings(); };

@@ -13,7 +13,7 @@ import { Glow } from './glow.js';
 
 const $ = (id) => document.getElementById(id);
 const SETTINGS_KEY = 'colapso.settings.v1';
-const DEF_SETTINGS = { sens: 1, adsSens: 0.7, fov: 78, vol: 0.8, quality: 'auto', invert: false, showFps: false };
+const DEF_SETTINGS = { sens: 1, adsSens: 0.7, fov: 78, vol: 0.8, music: 0.6, quality: 'auto', invert: false, showFps: false, hints: 'always', hudScale: 1, xhColor: '#ffffff' };
 
 class Game {
   constructor() {
@@ -186,11 +186,6 @@ class Game {
     this.state = 'play'; this.show(null);
     this.lock();
     this.spawnProtect = 2;
-    if (!localStorage.getItem('colapso.tips')) {
-      localStorage.setItem('colapso.tips', '1');
-      const tips = ['CAPTURE A, B E C · FIQUE DENTRO DO CÍRCULO', 'Q · TUNELAMENTO: ATRAVESSE PAREDES FINAS', 'E · SUPERPOSIÇÃO: CRIE UM ECO · E DE NOVO PARA TROCAR DE LUGAR', 'G · GRANADAS DERRUBAM PAREDES E PRÉDIOS'];
-      tips.forEach((t, i) => setTimeout(() => { if (this.state === 'play') this.hud.toast(t, 0); }, 1500 + i * 4200));
-    }
   }
   saveLoadout() { localStorage.setItem('colapso.loadout', JSON.stringify({ cls: this.cls, loadout: this.loadout, secondary: this.secondary })); }
   ammoFor(id) { const w = WEAPONS[id]; return { mag: w.mag, reserve: w.reserve }; }
@@ -216,6 +211,7 @@ class Game {
       }
       if (e.code === 'KeyR') this.startReload();
       if (e.code === 'KeyB') this.vm.inspect();
+      if (e.code === 'KeyV') this.melee();
       if (e.code === 'Digit1' && this.slot !== 'primary') this.setWeapon('primary');
       if (e.code === 'Digit2' && this.slot !== 'secondary') this.setWeapon('secondary');
       if (e.code === 'KeyG') this.playerGrenade();
@@ -391,11 +387,12 @@ class Game {
       if (hitE.isBot && !hitE.alive && wasAlive) { hitE.fallDir = 1; this.onKill(shooter, hitE, res.head, dist); }
       if (shooter === this.pent || shooter === this.echo) { this.hud.hit(!hitE.alive, res.head); this.audio.play(hitE.alive ? 'hit' : 'kill', null, 0.5, res.head ? 1.3 : 1, 0); }
       else this.audio.play('flesh', end, 0.7);
+      if (!hitE.alive) { this.audio.play('death', end, 0.9); this.audio.play('bodyfall', end, 0.5); }
     } else if (res.wh) {
       const wh = res.wh; const n = new THREE.Vector3(wh.nx, wh.ny, wh.nz);
       this.fx.impact(end, n, wh.m);
       const broke = this.world.damageVoxel(wh.x, wh.y, wh.z, D.vox);
-      if (broke) { this.fx.debris(end.x, end.y, end.z, n.x * 2 + d.x, 2, n.z * 2 + d.z, broke, 0.5, 2.5); if (broke === MAT.GLASS) this.audio.play('debris', end, 0.4, 2.2); if (broke === 25) this.barrelBoom(wh.x, wh.y, wh.z, shooter); }
+      if (broke) { this.fx.debris(end.x, end.y, end.z, n.x * 2 + d.x, 2, n.z * 2 + d.z, broke, 0.5, 2.5); if (broke === MAT.GLASS) this.audio.play('glass_break', end, 0.6); if (broke === 25) this.barrelBoom(wh.x, wh.y, wh.z, shooter); }
       this.audio.impact(wh.m, end);
     }
   }
@@ -485,7 +482,7 @@ class Game {
       if (this.world.get(vx, vy, vz)) {
         const ox = Math.floor(g.p.x / VS), oy = Math.floor(g.p.y / VS), oz = Math.floor(g.p.z / VS);
         if (ox !== vx && this.world.get(vx, oy, oz)) g.v.x *= -0.4; if (oy !== vy) { g.v.y *= -0.35; g.v.x *= 0.7; g.v.z *= 0.7; } if (oz !== vz && this.world.get(ox, oy, vz)) g.v.z *= -0.4;
-        if (Math.abs(g.v.y) > 2) this.audio.play('impact', g.p, 0.3, 0.6);
+        if (Math.abs(g.v.y) > 2) this.audio.play('nade_bounce', g.p, 0.6);
       } else g.p.copy(np);
       g.mesh.position.copy(g.p); g.mesh.rotation.x += dt * 10;
       if (g.t <= 0) { this.scene.remove(g.mesh); this.grenades.splice(i, 1); this.explode(g.p, 2.8, g.owner); }
@@ -535,7 +532,7 @@ class Game {
       cx += px; cy += py; cz += pz;
     }
     const n = Math.ceil(cells.length / step); const c = new THREE.Vector3(cx / n, cy / n, cz / n);
-    if (cells.length > 30) { this.audio.play('debris', c, 1.4, 0.7); this.audio.play('explosion', c, 0.5, 0.5); this.trauma = Math.min(1, this.trauma + 0.3); }
+    if (cells.length > 30) { this.audio.play('collapse', c, 1.1); this.trauma = Math.min(1, this.trauma + 0.3); }
     // crush entities under falling mass
     if (cells.length > 40) for (const e of this.entities) {
       if (!e.alive) continue; const d = Math.hypot(e.pos.x - c.x, e.pos.z - c.z);
@@ -594,7 +591,7 @@ class Game {
           for (const b of this.bots) if (b.alive && b.team === 0 && b.pos.distanceTo(G0.p) < 4) b.hp = Math.min(100, b.hp + 10 * dt);
         } else {
           for (const b of this.bots) if (b.alive && b.team === 1 && b.pos.distanceTo(G0.p) < 30) { b.markT = 1.2; b.spottedT = Math.max(b.spottedT || 0, 1.2); }
-          if (Math.floor(G0.t * 2) !== Math.floor((G0.t + dt) * 2)) this.audio.play('hit', G0.p, 0.3, 2.5, 0);
+          if (Math.floor(G0.t * 2) !== Math.floor((G0.t + dt) * 2)) this.audio.play('tick', G0.p, 0.5, 1, 0);
         }
       }
       if (G0.t <= 0) { this.scene.remove(G0.mesh); this.gadgets.splice(i, 1); }
@@ -613,7 +610,7 @@ class Game {
       if (!b.alive || b.team !== 1) continue; const to = b.chest.sub(eye); const d = to.length(); const a = Math.acos(Math.min(1, to.dot(dir) / d));
       if (a < ba && d < 120 && this.world.los(eye, b.chest)) { ba = a; best = b; }
     }
-    if (best) { best.markT = this.cls === 'recon' ? 14 : 8; best.spottedT = best.markT; this.audio.play('hit', null, 0.3, 0.7, 0); this.pent.score += 10; this.hud.toast('INIMIGO MARCADO', 10); }
+    if (best) { best.markT = this.cls === 'recon' ? 14 : 8; best.spottedT = best.markT; this.audio.play('spot', null, 0.6, 1, 0); this.pent.score += 10; this.hud.toast('INIMIGO MARCADO', 10); }
   }
   // ---------------- quantum abilities ----------------
   tunnel() {
@@ -659,6 +656,33 @@ class Game {
     this.hud.toast('SUPERPOSIÇÃO · [E] PARA COLAPSAR', 0);
   }
   onEchoLost() { this.hud.toast('DECOERÊNCIA · ECO PERDIDO', 0, true); this.audio.play('lost', null, 0.4); }
+
+  // ---------------- melee ----------------
+  // Knife swipe [V]: 2 m reach, lethal from behind, 60 damage from the front, chips weak voxels (glass).
+  melee() {
+    const p = this.player;
+    if (this.state !== 'play' || !p.alive || this.phase || this.time < (this.meleeUntil || 0)) return;
+    this.meleeUntil = this.time + 0.6; this.fireCool = Math.max(this.fireCool || 0, 0.5);
+    this.vm.melee(); this.audio.play('melee', null, 0.8, 1, 0);
+    setTimeout(() => {
+      if (this.state !== 'play' || !p.alive) return;
+      const eye = this.camera.position.clone(), dir = this.camera.getWorldDirection(new THREE.Vector3());
+      const res = this.sweep({ p: eye, shooter: this.pent }, dir, 2.1); if (!res) return;
+      if (res.e) {
+        const e = res.e, behind = -Math.sin(e.yaw || 0) * dir.x - Math.cos(e.yaw || 0) * dir.z > 0.35; // victim faces away from the blade
+        const wasAlive = e.alive; this.fx.blood(res.point, dir);
+        e.hurt(behind ? 250 : 60, this.time, this.pent, { head: false });
+        if (e.isBot && !e.alive && wasAlive) { e.fallDir = 1; this.onKill(this.pent, e, false, res.t); this.pent.score += 50; this.hud.toast('FACA', 50); }
+        this.hud.hit(!e.alive, false); this.audio.play('meleeHit', null, 0.9, 1, 0); this.audio.play(e.alive ? 'hit' : 'kill', null, 0.5, 1, 0);
+        if (!e.alive) { this.audio.play('death', res.point, 0.9); this.audio.play('bodyfall', res.point, 0.5); }
+      } else if (res.wh) {
+        const wh = res.wh, n = new THREE.Vector3(wh.nx, wh.ny, wh.nz), q = res.point;
+        this.fx.impact(q, n, wh.m); this.audio.impact(wh.m, q);
+        const broke = this.world.damageVoxel(wh.x, wh.y, wh.z, 2);
+        if (broke) { this.fx.debris(q.x, q.y, q.z, n.x * 2, 2, n.z * 2, broke, 0.5, 2.5); if (broke === MAT.GLASS) this.audio.play('glass_break', q, 0.6); if (broke === 25) this.barrelBoom(wh.x, wh.y, wh.z, this.pent); }
+      }
+    }, 170);
+  }
 
   // ---------------- conquest ----------------
   updateFlags(dt) {
@@ -782,7 +806,7 @@ class Game {
     if (this.nextLightning <= 0) {
       this.nextLightning = 9 + Math.random() * 16; this.lightning = 1; this.lightningPh = 0;
       const dist = 300 + Math.random() * 900; // metres → thunder delay = d / 343
-      setTimeout(() => this.audio.play('explosion', null, 0.35 * (1 - dist / 1400) + 0.1, 0.35, 0.8), dist / 343 * 1000);
+      setTimeout(() => this.audio.play('thunder', null, 0.84 * (1 - dist / 1400) + 0.24, 1, 0.8), dist / 343 * 1000);
     }
     if (this.lightning > 0) {
       this.lightningPh += dt; const k = this.lightningPh;
