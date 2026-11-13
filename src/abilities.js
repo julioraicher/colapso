@@ -39,9 +39,9 @@ export function scanTunnel(world, p, yaw) {
 export class Echo {
   constructor(game) {
     this.g = game; this.team = 0; this.alive = false; this.isEcho = true; this.name = 'ECO';
-    this.model = buildSoldier(0, 'rifle');
-    const ghost = new THREE.MeshBasicMaterial({ color: 0x5ff3ff, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false });
-    this.model.traverse(o => { if (o.isMesh) o.material = ghost; });
+    // translucent additive cyan copy of a KAPPA soldier, animated like a bot (soldier.js)
+    this.soldier = buildSoldier({ team: 0, cls: 'assalto', weaponId: 'k7', seed: 'ECO-7', ghost: true }); this.model = this.soldier.root;
+    this.pose = { pos: null, yaw: 0, vx: 0, vz: 0, crouch: false, aimPitch: 0, aiming: false, reload01: -1, ammo: 1e6, alive: true };
     this.model.visible = false; game.scene.add(this.model);
     this.pos = new THREE.Vector3(); this.yaw = 0; this.hp = 60; this.t = 0; this.wdef = WEAPONS.k7; this.cool = 0; this.walk = 0; this.crouch = false;
   }
@@ -49,6 +49,8 @@ export class Echo {
   get chest() { return new THREE.Vector3(this.pos.x, this.pos.y + 1.25, this.pos.z); }
   start(pos, yaw, wdef) {
     this.pos.copy(pos); this.yaw = yaw; this.alive = true; this.hp = 60; this.t = 8; this.wdef = wdef; this.model.visible = true; this.cool = 0.4;
+    const wid = Object.keys(WEAPONS).find(k => WEAPONS[k] === wdef); if (wid && wid !== this.soldier.wid) this.soldier.setWeapon(wid);   // the echo carries the player's weapon
+    this.soldier.respawn(); this.lastCool = this.cool; this.pose.aimPitch = 0;
     // destination: farthest walkable point up to 18 m along view direction
     const dir = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
     let dest = pos.clone();
@@ -62,7 +64,7 @@ export class Echo {
     this.t -= dt; if (this.t <= 0) { this.kill(true); return; }
     const g = this.g;
     // flicker (superposition shimmer)
-    this.model.traverse(o => { if (o.isMesh) o.material.opacity = 0.35 + Math.random() * 0.3; });
+    this.soldier.setOpacity(0.35 + Math.random() * 0.3);
     // target nearest visible enemy
     let best = null, bd = 60;
     for (const e of g.entities) { if (!e.alive || e.team === 0) continue; const d = e.pos.distanceTo(this.pos); if (d < bd && g.world.los(this.eye, e.chest)) { bd = d; best = e; } }
@@ -81,9 +83,9 @@ export class Echo {
     if (!hit(p.x + vx * dt, p.y, p.z)) p.x += vx * dt; else if (!hit(p.x + vx * dt, p.y + VS + 0.01, p.z)) { p.x += vx * dt; p.y += VS; }
     if (!hit(p.x, p.y, p.z + vz * dt)) p.z += vz * dt; else if (!hit(p.x, p.y + VS + 0.01, p.z + vz * dt)) { p.z += vz * dt; p.y += VS; }
     p.y = w.groundHeightAt(p.x, p.z, Math.floor((p.y + 0.6) / VS));
-    const U = this.model.userData; const spd = Math.hypot(vx, vz);
-    this.walk += spd * dt * 2.4; const sw = Math.sin(this.walk) * Math.min(1, spd / 3) * 0.7;
-    U.legs[0].leg.rotation.x = sw; U.legs[1].leg.rotation.x = -sw;
-    this.model.position.copy(p); this.model.rotation.y = this.yaw;
+    const S = this.pose; S.pos = p; S.yaw = this.yaw; S.vx = vx; S.vz = vz; S.aiming = !!best;
+    if (best) S.aimPitch = Math.atan2(best.chest.y - this.eye.y, Math.hypot(best.pos.x - p.x, best.pos.z - p.z));
+    if (this.cool > this.lastCool) S.ammo--; this.lastCool = this.cool;   // a shot: recoil and muzzle flash
+    this.soldier.update(dt, S);
   }
 }

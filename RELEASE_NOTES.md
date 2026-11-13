@@ -5,13 +5,16 @@
 
 **Qualquer sistema, sem instalar:** baixe `Colapso-navegador.zip`, extraia e abra `index.html` no Chrome/Edge.
 
-## Novidades da v2
+## Novidades da v3
 
-- 4 classes (Assalto, Engenheiro, Suporte, Reconhecimento) com gadgets: seringa, RPG, caixa de suprimentos, sensor de movimento.
-- 13 armas: 2 fuzis, SMG, PDW, escopeta, 2 metralhadoras (LMG), DMR, 2 snipers de ferrolho, pistola, revólver, pistola automática e RPG.
-- Balística real por projétil (gravidade + arrasto), lunetas com respiração, animações de recarga por tipo de arma.
-- Mapa muito mais detalhado: veículos, letreiros neon, torre de sniper, barris explosivos em cadeia.
-- Halos de luz e reflexos no asfalto molhado; medalhas, XP, patentes e dificuldade.
-- Correção: o tunelamento agora deixa você realmente invisível para os bots enquanto atravessa a parede.
+- **Áudio novo, com gravações reais:** tiro próprio para cada uma das 14 armas, recarga cronometrada com a animação, passos por superfície, impactos por material, ricochetes, explosões diferentes (granada, foguete, barril, reator), trovões, chuva que muda quando você entra em um prédio, batalha ao longe e trilha sonora adaptativa. Tiro atrás de parede soa abafado, tiro distante chega atrasado (343 m/s) e explosão próxima deixa zumbido. Controle de volume da música nas opções. Créditos das gravações na tela COMO JOGAR e em CREDITS.md.
+- **Soldados com aparência de verdade:** modelos pixel-art com esqueleto e animação (andar, correr, agachar, mirar com as duas mãos na arma, recuo, recarga, cinco mortes diferentes). Duas facções que você distingue de longe: KAPPA (azul-marinho, luzes ciano) e ÔMEGA (areia e oliva, luzes laranja). Cada classe tem equipamento próprio visível pelas costas e cada soldado varia em altura, pele, capacete e rosto.
+- **14 armas com modelo único e detalhado:** cada uma com silhueta, cores e mira próprias (holográfica, red dot, lunetas, alça e massa com trítio), madeira, trilhos, carregador com cartucho à vista e o nome gravado. Em primeira pessoa aparecem as mãos com luvas, cápsulas ejetadas, clarão de boca por arma, ferrolho e bomba da escopeta animados.
+- **Teclas claras na tela:** HUD refeito com a tecla de cada ação ao lado dela, legenda de controles no rodapé, **H** abre o teclado e o mouse desenhados com todos os comandos, **M** abre o mapa tático, marcadores de objetivo com distância, lista "Primeiros passos" na primeira partida.
+- **Menus novos:** menu principal, opções (escala do HUD, cor da mira, dicas de controle), pausa com cola de comandos, tela de implantação em três passos com ícones e barras de atributos das armas, placar e tela final.
+- **V** ataca com a faca (letal pelas costas, quebra vidro) e **B** inspeciona a arma.
+- **Mais leve que a v2:** cerca de 290 *draw calls* com 15 soldados na tela, contra 410 a 540 antes.
 
-Controles: WASD · SHIFT correr/segurar fôlego · ESPAÇO pular · CTRL agachar/deslizar · mouse atirar/mirar · R recarregar · 1/2/roda armas · **F gadget** · G granada · **Q tunelamento** · **E superposição** · Z marcar inimigo · TAB placar · P FPS · ESC pausa · F11 tela cheia.
+Em seguida: clima e efeitos (céu, chuva, explosões, impactos), modos de jogo e apoios.
+
+Controles: WASD · SHIFT correr/segurar fôlego · ESPAÇO pular · CTRL agachar/deslizar · mouse atirar/mirar · R recarregar · 1/2/roda armas · **F gadget** · G granada · **Q tunelamento** · **E superposição** · Z marcar inimigo · B inspecionar · V faca · **H controles** · **M mapa** · TAB placar · P FPS · ESC pausa · F11 tela cheia.

@@ -184,6 +184,25 @@ export class World {
     return 1;
   }
 
+  // Baked-light probe for dynamic objects (soldiers, props): point in metres -> out.r/g/b (a THREE.Color works).
+  // O(1): one roof probe (at most 24 cells straight up) plus the flood-filled lamp light of that cell.
+  // Open outdoor night is (1, 1, 1); under a roof the ambient halves; lamps add their colour relative to the
+  // ambient; clamped to 0.35..2.2 per channel. The lamp field is stepped per voxel: smooth it over a few frames.
+  lightAt(x, y, z, out) {
+    const vx = Math.floor(x / VS), vz = Math.floor(z / VS), SXZ = SX * SZ; let vy = Math.floor(y / VS);
+    if (vx < 0 || vz < 0 || vx >= SX || vz >= SZ || vy >= SY) { out.r = out.g = out.b = 1; return out; }
+    if (vy < 0) vy = 0;
+    let i = (vy * SZ + vz) * SX + vx;
+    if (!this.transparent(this.v[i]) && vy + 1 < SY) i += SXZ;          // probe inside a solid: use the cell above
+    let sky = 1;
+    for (let j = i + SXZ, n = 0; n < 24 && j < this.v.length; j += SXZ, n++) { const m = this.v[j]; if (m && m !== MAT.GLASS) { sky = m === MAT.LEAF ? 0.75 : 0.5; break; } }
+    const L = this.light, c = (v) => v < 0.35 ? 0.35 : v > 2.2 ? 2.2 : v;
+    out.r = c(sky + LF[this.lr[i]] / (L.skyCol.r + 0.5 * L.sunCol.r));
+    out.g = c(sky + LF[this.lg[i]] / (L.skyCol.g + 0.5 * L.sunCol.g));
+    out.b = c(sky + LF[this.lb[i]] / (L.skyCol.b + 0.5 * L.sunCol.b));
+    return out;
+  }
+
   buildChunk(ci) {
     const cx = ci % CX, cz = ((ci / CX) | 0) % CZ, cy = (ci / (CX * CZ)) | 0;
     const old = this.chunks[ci];
