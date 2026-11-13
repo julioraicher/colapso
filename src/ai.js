@@ -191,6 +191,7 @@ export class Bot {
     S.crouch = this.crouch; S.aiming = this.aimHold > 0; S.aimPitch = pitch; S.ammo = this.ammo;
     S.reload01 = this.reloadT > 0 ? 1 - this.reloadT / (this.wdef.reload * (this.wdef.perShell ? 4 : 1)) : -1;
     this.soldier.world = g.world; this.soldier.update(dt, S);
+    if (this.team === 0) (this.soldier.label || this.soldier.setLabel(this.name)).visible = g.player.pos.distanceToSquared(this.pos) < 625;   // name plate on teammates within 25 m
   }
   muzzleWorld() { return this.soldier.muzzleWorld(); }
   // model side of a hit: directional flinch, and what the death animation needs to know about the last hit.
