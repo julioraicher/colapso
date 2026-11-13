@@ -87,7 +87,7 @@ function mini(k, b, z, D, col) {
   k.mirror(() => k.box(.004, .026, .008, .014, b + .021, z - .012, BLK)); k.box(.032, .004, .008, 0, b + .036, z - .012, BLK);   // window hoop
   if (!D) return;
   led(k, 0, b + .022, z - .0115, col, '+z', .0055);
-  k.box(.014, .005, .014, 0, b + .0125, z + .016, st(T.flat, col, { glow: .35 }));   // emitter
+  k.box(.012, .005, .012, 0, b + .0125, z + .016, GM); led(k, 0, b + .0152, z + .016, col, '+y', .004);   // emitter
   k.mirror(() => k.cyl('x', .004, .004, .016, b + .005, z + .012, STL, 6));
 }
 // Telescopic sight on two rings. y = optical axis, b = rail top, z0 = ocular (rear) end.
@@ -145,14 +145,14 @@ function k7(c, k, D) {
     k.cyl('z', .017, .012, 0, .014, .128, STL, 8);                             // castle nut
     k.box(.024, .012, .03, 0, .054, .095, BLK); k.box(.024, .012, .03, 0, .054, -.415, BLK);   // folded backup sights
     k.mirror(() => { for (let i = 0; i < 3; i++) k.box(.002, .008, .04, .0275, .008, -.215 - i * .075, HOLE); });
-    k.box(.03, .022, .07, 0, .06, -.33, st(T.polymer, PAL.tan)); led(k, -.008, .064, -.295, GREEN); k.cyl('z', .006, .004, .007, .06, -.367, st(T.glass, PAL.lens), 6);   // laser module
+    k.box(.022, .03, .07, .038, .012, -.33, st(T.polymer, PAL.tan)); led(k, .038, .02, -.2949, GREEN); k.cyl('z', .006, .004, .038, .012, -.367, st(T.glass, PAL.lens), 6);   // laser module, right side
     k.mirror(() => k.box(.002, .003, .22, .0215, .0395, -.03, WEAR));          // worn top edges
     k.box(.032, .012, .1, 0, .036, .25, POL);                                  // cheek rest
     k.text('K-7', .014, -.0222, .014, .055, '-x', PAL.white);
     k.cyl('x', .006, .05, 0, -.012, .3, STL, 6);                               // sling loop
     k.cyl('z', .0105, .012, 0, .008, -.526, STL, 8);                           // crush washer
   }
-  return { muzzle: [0, .008, -.582], sightY: .083, adsZ: .2, eject: [.03, .02, -.04], flash: 1, cas: 'rifle', band: [.048, .012, .02, 0, .008, .3],
+  return { muzzle: [0, .008, -.582], sightY: .083, adsZ: .135, eject: [.03, .02, -.04], flash: 1, cas: 'rifle', band: [.048, .012, .02, 0, .008, .3],
     magGrab: [0, -.17, -.035], rack: 'l', hold: { r: { p: [0, -.047, .088], rake: -.3 }, l: { pose: 'under', p: [0, -.019, -.3], w: .054 } } };
 }
 
@@ -186,7 +186,7 @@ function arco(c, k, D) {
     k.cyl('z', .011, .014, 0, .006, -.372, STL, 8);
     k.box(.03, .006, .05, 0, -.037, -.25, RAIL);                               // under-rail stub
   }
-  return { muzzle: [0, .006, -.425], sightY: .099, adsZ: .2, eject: [.03, .026, .2], flash: .95, cas: 'rifle', band: [.054, .012, .02, 0, .0, .29],
+  return { muzzle: [0, .006, -.425], sightY: .099, adsZ: .15, eject: [.03, .026, .2], flash: .95, cas: 'rifle', band: [.054, .012, .02, 0, .0, .29],
     magGrab: [0, -.15, -.02], rack: 'l', hold: { r: { p: [0, -.044, -.03], rake: -.22 }, l: { pose: 'under', p: [0, -.03, -.22], w: .046 } } };
 }
 
@@ -221,7 +221,7 @@ function vespa(c, k, D) {
     k.box(.042, .008, .054, 0, -.082, -.087, GM, .04);                         // flared magwell lip
     k.cyl('x', .005, .036, .014, .008, .112, STL, 6);
   }
-  return { muzzle: [0, .012, -.362], sightY: .068, adsZ: .2, eject: [.03, .018, -.06], flash: .8, cas: 'pistol', band: [.046, .014, .03, 0, .012, -.19],
+  return { muzzle: [0, .012, -.362], sightY: .068, adsZ: .14, eject: [.03, .018, -.06], flash: .8, cas: 'pistol', band: [.046, .014, .03, 0, .012, -.19],
     magGrab: [0, -.1, -.004], rack: 'l', hold: { r: { p: [0, -.048, .09], rake: -.25 }, l: { pose: 'grip', p: [0, -.012, -.085], w: .04, d: .05, rake: .04 } } };
 }
 
@@ -255,8 +255,8 @@ function faisca(c, k, D) {
     k.cyl('x', .006, .054, 0, .02, .19, STL, 6);
     k.box(.026, .006, .05, 0, -.053, -.04, RAIL);
   }
-  return { muzzle: [0, 0, -.255], sightY: .11, adsZ: .11, eject: [0, -.06, .12], ejectV: [.15, -1.2, .1], flash: .8, cas: 'pistol', band: [.054, .012, .02, 0, .0, .15],
-    magOut: [-.2, -.28, .1, 0, .09], magGrab: [0, .012, .06], rack: 'l',
+  return { muzzle: [0, 0, -.255], sightY: .11, adsZ: .075, eject: [0, -.06, .12], ejectV: [.15, -1.2, .1], flash: .8, cas: 'pistol', band: [.054, .012, .02, 0, .0, .15],
+    magOut: [-.2, -.28, .1, 0, .09], magGrab: [-.02, 0, .04], sideGrab: 1, rack: 'l',
     hold: { r: { p: [0, -.05, .06], rake: -.18 }, l: { pose: 'grip', p: [0, -.05, -.1], w: .03, d: .034, rake: .1 } } };
 }
 
@@ -293,8 +293,8 @@ function martelo(c, k, D) {
     k.cyl('x', .005, .03, 0, -.03, -.5, STL, 6); k.cyl('x', .005, .04, 0, -.1, .37, STL, 6);   // sling swivels
     k.tube('z', .0135, .0095, .008, 0, .014, -.602, STL, 8);
   }
-  return { muzzle: [0, .014, -.612], sightY: .046, adsZ: .28, eject: [.03, .01, -.01], flash: 1.7, cas: 'hull', band: [.044, .012, .02, 0, -.03, .36],
-    port: [0, -.034, -.03], hold: { r: { p: [0, -.006, .13], rake: -.9, w: .034, d: .046 }, l: { pose: 'under', p: [0, -.035, -.3], w: .046 } } };
+  return { muzzle: [0, .014, -.612], sightY: .046, adsZ: .17, eject: [.03, .01, -.01], flash: 1.7, cas: 'hull', band: [.044, .012, .02, 0, -.03, .36],
+    port: [0, -.034, -.03], hold: { r: { p: [0, -.017, .127], rake: .32, stock: 1, w: .034, d: .046 }, l: { pose: 'under', p: [0, -.035, -.3], w: .046 } } };
 }
 
 // TROVAO M-100: olive belt-fed LMG. Feed cover (with the holo) hinges at the front, ammo pouch with a live belt,
@@ -337,7 +337,7 @@ function trovao(c, k, D) {
     k.mirror(() => k.box(.002, .003, .3, .0285, .0355, -.03, WEAR));
     k.cyl('x', .006, .046, 0, -.03, .37, STL, 6);
   }
-  return { muzzle: [0, .012, -.71], sightY: .102, adsZ: .17, hip: [.14, -.16, -.46], eject: [.032, -.02, -.06], flash: 1.25, cas: 'rifle', band: [.046, .012, .02, 0, -.018, .32],
+  return { muzzle: [0, .012, -.71], sightY: .102, adsZ: .13, hip: [.14, -.16, -.46], eject: [.032, -.02, -.06], flash: 1.25, cas: 'rifle', band: [.046, .012, .02, 0, -.018, .32],
     magGrab: [0, -.1, 0], hold: { r: { p: [0, -.037, .09], rake: -.3 }, l: { pose: 'under', p: [0, -.03, -.31], w: .05 } } };
 }
 
@@ -378,7 +378,7 @@ function bigorna(c, k, D) {
     k.box(.012, .012, .012, 0, .05, .085, BLS);                                // rear lug
     k.cyl('x', .005, .044, 0, -.085, .33, STL, 6); k.box(.008, .012, .02, -.02, -.02, -.47, STL);
   }
-  return { muzzle: [0, .01, -.725], sightY: .077, adsZ: .22, hip: [.14, -.16, -.46], eject: [.03, .02, -.03], flash: 1.3, cas: 'big', band: [.04, .012, .02, 0, -.004, .3],
+  return { muzzle: [0, .01, -.725], sightY: .077, adsZ: .15, hip: [.14, -.16, -.46], eject: [.03, .02, -.03], flash: 1.3, cas: 'big', band: [.04, .012, .02, 0, -.004, .3],
     magGrab: [0, -.15, 0], rack: 'r', hold: { r: { p: [0, -.033, .085], rake: -.3 }, l: { pose: 'under', p: [0, -.031, -.27], w: .046 } } };
 }
 
@@ -498,7 +498,7 @@ function vigia(c, k, D) {
     k.box(.002, .016, .05, .0215, -.03, .34, BRS);                             // maker's plate
   }
   return { muzzle: [0, .014, -.625], sightY: .064, adsZ: .19, eject: [.03, .02, .0], flash: 1.3, cas: 'big', band: [.044, .014, .02, 0, -.014, -.3],
-    magGrab: [0, -.04, 0], knob: [.05, -.015, .03], hold: { r: { p: [0, -.012, .15], rake: -.85, w: .034, d: .044 }, l: { pose: 'under', p: [0, -.034, -.24], w: .042 } } };
+    magGrab: [0, -.04, 0], knob: [.05, -.015, .03], hold: { r: { p: [0, -.02, .14], rake: .38, stock: 1, w: .034, d: .044 }, l: { pose: 'under', p: [0, -.034, -.24], w: .042 } } };
 }
 
 // P9: service pistol, steel slide over a black polymer frame, three-dot night sights.
@@ -529,8 +529,8 @@ function p9(c, k, D) {
     k.box(.02, .006, .05, 0, -.002, -.11, RAIL);                               // light rail
     k.cyl('x', .003, .032, 0, .012, .058, STL, 6);
   }
-  return { muzzle: [0, .04, -.152], sightY: .064, adsZ: .34, hip: [.1, -.115, -.5], eject: [.02, .056, -.02], flash: .6, cas: 'pistol', band: [.032, .008, .03, 0, .014, -.12],
-    magOut: [0, -.3, .06, 0, 0], magGrab: [0, -.085, .02], travel: .04, slideLock: 1, fam: 'pistol',
+  return { muzzle: [0, .04, -.152], sightY: .064, adsZ: .29, hip: [.085, -.11, -.37], eject: [.02, .056, -.02], flash: .6, cas: 'pistol', band: [.032, .008, .03, 0, .014, -.12],
+    magOut: [0, -.3, .06, 0, 0], magGrab: [0, -.1, .02], travel: .04, slideLock: 1, fam: 'pistol',
     hold: { r: { p: [0, .004, .03], rake: -.2, w: .03, d: .046 }, l: { pose: 'wrap' } } };
 }
 
@@ -559,7 +559,7 @@ function juiz(c, k, D) {
     y.cyl('z', .006, .004, 0, 0, .031, SSD, 6);
   });
   if (D) {
-    k.box(.01, .03, .012, 0, .078, .068, SSD, -.5);                            // hammer spur
+    k.box(.008, .022, .012, 0, .068, .072, SSD, -.6);                            // hammer spur
     k.box(.006, .004, .006, 0, .0885, -.232, st(T.flat, PAL.red, { glow: .5 }));   // red ramp insert
     k.cyl('z', .005, .1, 0, .024, -.14, SSD, 6);                               // ejector rod
     k.cyl('x', .005, .034, 0, -.05, .075, BRS, 6);                             // grip medallion
@@ -568,7 +568,7 @@ function juiz(c, k, D) {
     k.mirror(() => k.box(.002, .003, .12, .0095, .078, -.012, WEAR));
     k.cyl('z', .0125, .006, 0, .056, -.257, SSD, 8);
   }
-  return { muzzle: [0, .056, -.262], sightY: .09, adsZ: .34, hip: [.1, -.125, -.5], flash: 1.3, cas: null, dump: 6, band: [.018, .008, .05, 0, .033, -.2], fam: 'pistol',
+  return { muzzle: [0, .056, -.262], sightY: .09, adsZ: .29, hip: [.085, -.118, -.38], flash: 1.3, cas: null, dump: 6, band: [.018, .008, .05, 0, .033, -.2], fam: 'pistol',
     hold: { r: { p: [0, .0, .055], rake: -.38, w: .032, d: .048 }, l: { pose: 'wrap' } } };
 }
 
@@ -603,8 +603,8 @@ function rajada(c, k, D) {
     k.box(.002, .006, .03, -.0165, .024, -.01, STL); k.cyl('x', .004, .034, 0, .002, -.004, STL, 6);
     k.box(.02, .006, .04, 0, -.004, -.075, RAIL);
   }
-  return { muzzle: [0, .042, -.242], sightY: .064, adsZ: .34, hip: [.1, -.115, -.5], eject: [.02, .056, -.02], flash: .7, cas: 'pistol', band: [.034, .008, .03, 0, .012, -.15],
-    magOut: [0, -.3, .05, 0, 0], magGrab: [0, -.17, .03], travel: .04, slideLock: 1, fam: 'pistol',
+  return { muzzle: [0, .042, -.242], sightY: .064, adsZ: .29, hip: [.085, -.11, -.37], eject: [.02, .056, -.02], flash: .7, cas: 'pistol', band: [.034, .008, .03, 0, .012, -.15],
+    magOut: [0, -.3, .05, 0, 0], magGrab: [0, -.12, .02], travel: .04, slideLock: 1, fam: 'pistol',
     hold: { r: { p: [0, .004, .03], rake: -.16, w: .032, d: .048 }, l: { pose: 'grip', p: [0, -.006, -.127], w: .022, d: .026, rake: .12 } } };
 }
 
@@ -633,7 +633,7 @@ function rpg(c, k, D) {
     k.box(.03, .008, .04, X, -.118, -.214, GM);
     k.cyl('z', .03, .002, X, 0, -.512, HOLE, 10);                              // dark bore behind the rocket
   }
-  return { muzzle: [X, 0, -.53], sightY: .075, adsZ: .27, hip: [.11, -.13, -.44], flash: 1.9, cas: null, band: [.076, .076, .02, X, 0, .35],
+  return { muzzle: [X, 0, -.53], sightY: .075, adsZ: .22, hip: [.11, -.13, -.44], flash: 1.9, cas: null, band: [.076, .076, .02, X, 0, .35],
     hold: { r: { p: [X, -.03, 0], rake: -.18 }, l: { pose: 'grip', p: [X, -.036, -.222], w: .03, d: .036, rake: -.05 } } };
 }
 
@@ -679,27 +679,33 @@ export function buildGun(type, opts = {}) {
 }
 
 // ---- first-person gloves and forearms -----------------------------------------------------------
-const GLV = st(T.fabric, 0x4b4a48), PAD = st(T.carbon, 0x8f8d88), CUF = st(T.flat, 0x3c3b3a), SLV = st(T.ripstop, 0x55627a), PALM = st(T.leather, 0x6e5a48);
-// Hand wrapped around a vertical grip (w wide, d deep). Origin = top centre of the gripped section, fingers stacked downward.
-// side +1 = right hand (palm on +X), -1 = left. trigger: index finger laid along the frame. fwd: thumb forward on the palm side.
-function handGrip(k, side, w, d, trigger, fwd) {
+const GLV = st(T.fabric, 0x857f68), PAD = st(T.carbon, 0x4a4947), CUF = st(T.ribs, 0x3a3936, { turn: 1 }), SLV = st(T.ripstop, 0x5d5b55), PALM = st(T.leather, 0x5e4c3a);
+// Hand wrapped around a grip (w wide, d deep). Origin = top centre of the gripped section, fingers stacked downward.
+// side +1 = right hand (palm on +X), -1 = left. trigger: index finger laid along the frame. fwd: support hand closed over
+// the firing hand, thumb forward. stock: the fist lies along a straight stock wrist (hollow along +Z, thumb over the top).
+function handGrip(k, side, w, d, trigger, fwd, stock) {
   const px = w / 2;
-  k.push(0, 0, 0, 0, [side, 1, 1]);
-  k.box(.024, .08, d + .02, px + .012, -.034, .004, GLV);                     // palm and back of the hand
+  k.push(0, 0, 0, stock ? -Math.PI / 2 : 0, [side, 1, 1]);
+  if (fwd) k.box(.038, .08, d + .02, px + .005, -.034, .004, GLV);            // support palm, flush against the firing hand's fingertips
+  else {
+    k.box(.024, .08, d + .02, px + .012, -.034, .004, GLV);                   // palm and back of the hand
+    k.box(w + .028, stock ? .02 : .026, .02, .01, -.012, d / 2 + .01, GLV);   // web of the thumb
+    if (!stock) k.box(w + .016, .05, .018, .012, -.05, d / 2 + .009, GLV);    // heel
+  }
   k.box(.007, .046, d * .8, px + .0265, -.03, 0, PAD);                        // knuckle armour
-  k.box(w + .028, .026, .02, .01, -.012, d / 2 + .01, GLV);                   // web of the thumb
-  k.box(w + .016, .05, .018, .012, -.05, d / 2 + .009, GLV);                  // heel
   const n = trigger ? 3 : 4, y0 = trigger ? -.03 : -.008;
   for (let i = 0; i < n; i++) {
     const y = y0 - i * .0215;
     k.box(w + .026, .019, .019, .003, y, -d / 2 - .0095, GLV);                // finger across the front strap
     k.box(.016, .019, d * .5, -px - .008, y, -d / 2 + d * .2, GLV);           // fingertip on the far side
   }
-  if (trigger) { k.box(.016, .018, .05, px + .008, -.006, -d / 2 - .02, GLV); k.box(.015, .017, .024, px - .004, -.006, -d / 2 - .05, GLV, [0, .7, 0]); }
-  if (fwd) k.box(.017, .018, .065, px + .003, .01, -.022, GLV); else k.box(.017, .019, .05, -px - .0085, -.004, -.004, GLV);   // thumb
-  k.box(.06, .05, .03, px - .006, -.04, d / 2 + .03, CUF);                    // wrist
+  if (trigger && stock) k.box(.016, .06, .018, px + .008, .024, -d / 2 + .012, GLV);   // index finger forward along the stock
+  else if (trigger) { k.box(.016, .018, .05, px + .008, -.006, -d / 2 - .02, GLV); k.box(.015, .017, .024, px - .004, -.006, -d / 2 - .05, GLV, [0, .7, 0]); }
+  if (fwd) k.box(.017, .018, .07, px - .0045, -.004, -.032, GLV); else k.box(.017, .019, .05, -px - .0085, -.004, -.004, GLV);   // thumb (fwd: along the frame, outside the firing thumb)
+  const wx = stock ? px + .008 : fwd ? px + .012 : px - .006;
+  if (stock) k.box(.06, .03, .05, wx, -.1, -.004, CUF); else k.box(.06, .05, .03, wx, -.04, d / 2 + .03, CUF);   // wrist
   k.pop();
-  return new THREE.Vector3(side * (px - .006), -.04, d / 2 + .042);
+  return stock ? new THREE.Vector3(side * wx, -.004, .112) : new THREE.Vector3(side * wx, -.04, d / 2 + .042);
 }
 // Left hand cupping a fore-end from below. Origin = bottom centre of the fore-end (w wide); fingers reach h up the far side.
 function handUnder(k, w, h) {
@@ -718,7 +724,7 @@ const _hands = new Map();
 export function handMesh(side, h) {
   const pose = h.pose || 'grip', w = h.w ?? .032, d = h.d ?? (pose === 'under' ? .04 : .042), key = [side, pose, w, d, h.trigger ? 1 : 0].join(':');
   let e = _hands.get(key);
-  if (!e) { const k = new Kit(96), wrist = pose === 'under' ? handUnder(k, w, d) : handGrip(k, side, w, d, !!h.trigger, pose === 'wrap'); e = { geo: k.geometry(), wrist }; _hands.set(key, e); }
+  if (!e) { const k = new Kit(96), wrist = pose === 'under' ? handUnder(k, w, d) : handGrip(k, side, w, d, !!h.trigger, pose === 'wrap', pose === 'stock'); e = { geo: k.geometry(), wrist }; _hands.set(key, e); }
   const m = new THREE.Mesh(e.geo, kitMaterial()); m.userData.wrist = e.wrist; m.userData.keep = true; return m;
 }
 /** Sleeved forearm: origin at the wrist, +Z runs to the elbow and on past it (always long enough to leave the screen). */
@@ -729,7 +735,7 @@ export function forearmMesh(side) {
   k.taper(.068, .062, .26, 0, 0, .16, '+z', 1.2, SLV);                        // forearm sleeve
   k.box(.084, .078, .42, 0, -.003, .5, SLV);                                  // upper sleeve
   k.box(.088, .03, .1, 0, .03, .34, st(T.carbon, PAL.black));                 // elbow pad
-  if (side < 0) { k.box(.05, .012, .06, 0, .037, .1, BLK); k.box(.038, .003, .04, 0, .0445, .1, st(T.screen, PAL.kappa, { glow: .7 })); k.box(.076, .008, .012, 0, .03, .135, BLK); }   // wrist computer
+  if (side < 0) { k.box(.046, .01, .056, 0, .036, .1, BLK); k.box(.026, .003, .022, -.004, .0425, .106, st(T.screen, PAL.kappa, { glow: .45 })); k.box(.076, .008, .012, 0, .03, .135, BLK); led(k, .014, .0412, .084, GREEN, '+y', .004); }   // wrist computer
   else k.decal(T.kappa, .04, .04, 0, .037, .2, '+y', { tint: PAL.kappa, glow: .3 });
   const m = k.mesh(); m.userData.keep = true; return m;
 }
