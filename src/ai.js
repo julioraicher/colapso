@@ -161,7 +161,7 @@ export class Bot {
       this.yaw = lerpAngle(this.yaw, wantYaw, Math.min(1, dt * 8));
       this.react -= dt;
       // keep distance: stop to shoot at range, strafe otherwise
-      if (d < 25 || this.wdef.type === 'dmr') moving = false;
+      if ((d < 25 || this.wdef.type === 'dmr') && !this.seekCover) moving = false;
       this.aimErr = Math.max(0.012 / this.skill, this.aimErr - dt * 0.12 * this.skill);
       this.cool -= dt;
       if (this.react <= 0 && this.cool <= 0 && this.reloadT <= 0) {
@@ -174,7 +174,7 @@ export class Bot {
           if (w.auto && --this.burst <= 0) { this.burst = 3 + Math.random() * 6 | 0; this.cool += 0.25 + Math.random() * 0.45; }
         }
       }
-      this.strafeT -= dt; if (this.strafeT <= 0) { this.strafeT = 0.6 + Math.random() * 1.2; this.strafe = Math.random() < 0.5 ? -1 : 1; if (Math.random() < 0.25) this.strafe = 0; this.crouch = !moving && Math.random() < 0.35; }
+      this.strafeT -= dt; if (this.strafeT <= 0) { this.strafeT = 0.6 + Math.random() * 1.2; this.strafe = this.seekCover ? 0 : Math.random() < 0.5 ? -1 : 1; if (Math.random() < 0.25) this.strafe = 0; this.crouch = !moving && Math.random() < 0.35; }
     } else { this.crouch = false; }
     // ---- grenade at last-known position behind cover ----
     this.nade -= dt;
@@ -245,6 +245,23 @@ export class Bot {
       if (best !== this.target || this.seeT <= 0) { this.react = (0.25 + Math.random() * 0.35) / this.skill * (best.isPlayer && best.p.crouch ? 1.3 : 1); this.aimErr = 0.08 + bd * 0.0015; }
       this.target = best; this.seeT = 1; this.lastSeen = (best.isPlayer ? best.p.pos : best.pos).clone(); this.lastSeenT = now;
     } else { this.seeT = 0; if (this.target && (!this.target.alive)) this.target = null; }
+    // take cover when hurt / suppressed / reloading: sample nearby nav cells hidden from the threat
+    if (this.seekCover && (now > this.seekCover || (this.path && this.pi >= this.path.length))) { this.seekCover = 0; this.crouchHold = now + 1.5; }
+    const threat = this.target && this.target.alive ? this.target : null;
+    if (threat && !this.seekCover && now - (this.coverT || 0) > 4 && (this.hp < 50 || this.suppress > 0.6 || this.reloadT > 0)) {
+      this.coverT = now;
+      const te = threat.isPlayer ? threat.p.eye : threat.eye;
+      let best = null, bs = 1e9;
+      for (let k = 0; k < 14; k++) {
+        const a = Math.random() * Math.PI * 2, r = 2 + Math.random() * 7;
+        const c = new THREE.Vector3(this.pos.x + Math.cos(a) * r, 0, this.pos.z + Math.sin(a) * r);
+        const h = g.nav.heightAt(c); if (h === null || Math.abs(h - this.pos.y) > 1) continue; c.y = h + 1.1;
+        if (g.world.los(te, c)) continue;
+        const sc = r + c.distanceTo(te) * -0.05; if (sc < bs) { bs = sc; best = c; }
+      }
+      if (best) { best.y -= 1.1; this.path = g.nav.path(this.pos, best); this.pi = 0; this.seekCover = now + 3; this.repath = 3.5; }
+    }
+    if (this.crouchHold && now < this.crouchHold && !this.seekCover) this.crouch = true;
     // objective: go to best flag (not ours), or chase last seen
     this.repath -= 0.25;
     if (this.repath <= 0 || !this.path || this.pi >= this.path.length) {
