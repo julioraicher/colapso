@@ -476,7 +476,8 @@ export class Env {
     this.t += dt; const t = this.t; this.time.value = t; this.frame++;
     if (fx.tick === this.fxTick) fx.update(dt);   // states that do not tick the effects (menu) still animate them
     this.fxTick = fx.tick;
-    if (this.frame === 40 && fx.prewarm) fx.prewarm(g.renderer, scene, cam);
+    // compile the lit world-shader variant (and every effect shader not yet drawn) in the menu / deploy screen, never mid-fight
+    if (!this.warm && this.frame >= 3 && g.state !== 'play' && fx.prewarm) { this.warm = true; fx.prewarm(g.renderer, scene, cam); }
     if (this.frame % 90 === 1) {
       // 'auto' quality: once the adaptive resolution has been pushed down this far the GPU is struggling, so the
       // effects go lean too and stay lean for the session (a latch, so the two controllers never oscillate)
