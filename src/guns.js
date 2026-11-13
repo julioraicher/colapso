@@ -659,6 +659,8 @@ for (const s of ['K-7', 'ARCO B-9', 'VESPA', 'FAISCA', 'MARTELO 12', '100', 'M-1
  * id picks the model (falls back to the type's default), lod 'fp' (default) or 'tp' (one merged mesh),
  * accent adds a small team-coloured band. userData: muzzle (Object3D), sightY, adsZ, hold, body and the
  * animated parts that exist (mag, bolt, cover, cyl, rocket, pump, shell), each with userData.home / homeR.
+ * sight is accepted for compatibility only: every model carries its own optic (holo / red dot / reflex / irons / scope).
+ * The rest of the model's spec is copied onto userData too (hip, eject, flash, cas, magOut, magGrab, rack, knob, port, fam ...).
  */
 export function buildGun(type, opts = {}) {
   const id = MODELS[opts.id] ? opts.id : BY_TYPE[type] || 'k7', fp = opts.lod !== 'tp';

@@ -364,9 +364,9 @@ export class Viewmodel {
       this.roll + P[2] + 0.3 * this.tiltW * hip + S[5] * sw - boltUp * 0.15);
 
     r.updateMatrixWorld(true);
-    this.arm(this.foreR, R, 0.34 - 0.1 * a, -0.42 + 0.04 * a, 0.05 + 0.07 * a);
+    this.arm(this.foreR, R, 0.31 - 0.08 * a, -0.52 + 0.1 * a, -0.04 + 0.14 * a);
     if (this.meleeT > 0) { this.kn.updateMatrixWorld(true); this.arm(this.foreL, this.knHand, -0.3, -0.6, 0.0); this.foreL.visible = true; }
-    else if (L) this.arm(this.foreL, L, -0.16 - 0.1 * a, -0.5 + 0.08 * a, -0.12 + 0.07 * a);
+    else if (L) this.arm(this.foreL, L, -0.16 - 0.08 * a, -0.62 + 0.12 * a, -0.35 + 0.15 * a);   // elbow low and forward: the support arm rises steeply from the bottom edge
     else this.foreL.visible = false;
     this.stepCasings(this.brass, dt); this.stepCasings(this.hulls, dt);
     if (this.cam.fov !== s.fov) { this.cam.fov = s.fov; this.cam.updateProjectionMatrix(); }
