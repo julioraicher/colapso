@@ -1,0 +1,26 @@
+const { chromium } = require('playwright');
+const path = require('path');
+(async () => {
+  const out = process.argv[2] || '/tmp/claude-0/shots';
+  require('fs').mkdirSync(out, { recursive: true });
+  const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'] });
+  const pg = await b.newPage({ viewport: { width: 1280, height: 720 } });
+  const errs = [];
+  pg.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') errs.push(m.type() + ': ' + m.text()); });
+  pg.on('pageerror', e => errs.push('PAGEERROR: ' + e.message + '\n' + e.stack));
+  const t0 = Date.now();
+  await pg.goto('file://' + path.resolve('dist/index.html'));
+  await pg.waitForFunction(() => window.__game && window.__game.state === 'menu', null, { timeout: 120000 });
+  console.log('load ms', Date.now() - t0);
+  await pg.screenshot({ path: out + '/menu.png' });
+  await pg.evaluate(() => { const g = window.__game; g.testMode = true; g.startMatch(); });
+  await pg.waitForTimeout(500);
+  await pg.screenshot({ path: out + '/deploy.png' });
+  await pg.evaluate(() => { window.__game.deploy(); });
+  await pg.waitForTimeout(3000);
+  await pg.screenshot({ path: out + '/play1.png' });
+  const info = await pg.evaluate(() => { const g = window.__game; return { state: g.state, pos: g.player.pos.toArray(), alive: g.player.alive, bots: g.bots.filter(b => b.alive).length, perf: g.perf, calls: g.renderer.info.render.calls, tris: g.renderer.info.render.triangles }; });
+  console.log(JSON.stringify(info));
+  console.log(errs.slice(0, 20).join('\n'));
+  await b.close();
+})();
