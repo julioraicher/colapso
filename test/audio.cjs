@@ -43,7 +43,7 @@ const UI = ['hover', 'click', 'confirm', 'back', 'deploy', 'tick', 'error', 'ran
     window.__rms = (n) => { const d = new Float32Array(n.fftSize); n.getFloatTimeDomainData(d); let s = 0, pk = 0; for (const v of d) { s += v * v; if (Math.abs(v) > pk) pk = Math.abs(v); } return [Math.sqrt(s / d.length), pk]; };
     return { syncMs, readyAtOnce, loadedAtOnce, ctx: a.ctx.state, sr: a.ctx.sampleRate, st: a.stats(), credits: (window.__game.audio.constructor && 1), hasGame: a.game === window.__game };
   });
-  console.log(`engine: init() returned in ${boot.syncMs.toFixed(1)} ms (ready ${boot.readyAtOnce}, samples decoded later: ${!boot.loadedAtOnce}), context ${boot.ctx} @ ${boot.sr} Hz, decode ${boot.st.loadMs} ms, ${boot.st.buffers} buffers, failed: [${boot.st.failed}]`);
+  console.log(`engine: init() returned in ${boot.syncMs.toFixed(1)} ms (ready ${boot.readyAtOnce}), context ${boot.ctx} @ ${boot.sr} Hz, samples decoded in ${boot.st.decodeMs} ms on an offline context started at page load (no gesture), everything playable ${boot.st.loadMs} ms after init(), ${boot.st.buffers} sounds, failed: [${boot.st.failed}]`);
   ok(boot.ctx === 'running', 'audio context is not running'); ok(boot.readyAtOnce, 'ready flag not set by init()'); ok(boot.st.loaded && !boot.st.failed.length, 'samples failed to decode: ' + boot.st.failed);
   ok(boot.hasGame, 'audio.game hook missing'); ok(boot.syncMs < 250, 'init() blocks the menu for ' + boot.syncMs.toFixed(0) + ' ms');
   await pg.waitForTimeout(2500);

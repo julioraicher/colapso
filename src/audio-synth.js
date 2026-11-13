@@ -126,6 +126,9 @@ export class Synth {
       pin: [0.2, (oc, o) => { const n = this.noise(oc, 0.1); const bp = oc.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 3500; bp.Q.value = 8; n.connect(bp); this.env(oc, bp, 0.001, 0.4, 0.05).connect(o); n.start(); }],
       hurt: [0.25, (oc, o) => { const n = this.noise(oc, 0.25); const lp = oc.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 300; n.connect(lp); this.env(oc, lp, 0.005, 0.8, 0.2).connect(o); n.start(); }],
     };
-    await Promise.all(Object.entries(jobs).map(async ([k, [sec, fn]]) => { B[k] = await this.render(sec, fn); }));
+    // One at a time (25 offline contexts rendering at once would starve the frame loop of a small laptop); the two
+    // ability sweeps go first because the engine layers them under the sampled ability sounds.
+    const keys = Object.keys(jobs).sort((a, b) => (/^ability/.test(b) ? 1 : 0) - (/^ability/.test(a) ? 1 : 0));
+    for (const k of keys) { try { const ab = await this.render(jobs[k][0], jobs[k][1]); B[k] = { b: ab, o: 0, d: ab.duration }; } catch (e) { /* this one stays silent */ } } // same { b, o, d } shape as a sampled sprite
   }
 }

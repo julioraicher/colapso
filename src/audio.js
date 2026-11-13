@@ -31,6 +31,7 @@ const SHELL_OF = ['shell_concrete', 'shell_metal', 'shell_concrete', 'shell_dirt
 const SYN_OF = [[/^gun_(k7|arco)/, 'rifle'], [/^gun_(vespa|faisca)/, 'smg'], [/^gun_martelo/, 'shotgun'], [/^gun_(orion|vigia)/, 'sniper'], [/^gun_(p9|rajada)/, 'pistol'], [/^gun_rpg/, 'rocket'], [/^(gun_|far_)/, 'dmr'],
   [/^(explosion|exp_|thunder)/, 'explosion'], [/^(debris|collapse|glass_break)/, 'debris'], [/^(imp_|nade_bounce|shellIn)/, 'impact'], [/^(step_|land_|jump)/, 'step'], [/^(draw|bolt|pump|pickup|scope|rl_)/, 'reload'],
   [/^(empty|firemode|click|ui_)/, 'empty'], [/^(headshot|spot|tick|countdown)/, 'hit'], [/^(ricochet|whiz|flesh|hit|kill|capture|lost|ability|abilityEnd|siren|pin|hurt)$/, null]];
+const LOAD_ORDER = ['ui', 'guns', 'foley', 'steps', 'impacts', 'rain_out', 'blast', 'far', 'wind', 'rain_in', 'reactor', 'thunder', 'stings'];
 const CX = [0, 1.6, -1.6, 0, 0], CZ = [0, 0, 0, 1.6, -1.6]; // cover probes around the listener (m)
 
 const smooth = (a, b, x) => { const t = x <= a ? 0 : x >= b ? 1 : (x - a) / (b - a); return t * t * (3 - 2 * t); };
@@ -40,7 +41,7 @@ const aim = (p, v, t, tc) => { if (p._v !== undefined && Math.abs(p._v - v) <= M
 
 export class Audio {
   constructor() {
-    this.ctx = null; this.ready = false; this.loaded = false; this.failed = []; this.loadMs = 0;
+    this.ctx = null; this.dctx = null; this.ready = false; this.loaded = false; this.failed = []; this.loadMs = 0; this.decodeMs = 0;
     this.buf = {}; this.syn = {}; this.loopBuf = {}; this.tracks = null; this.amb = null;
     this.listener = { x: 0, y: 0, z: 0, yaw: 0 };
     this.vol = 0.8; this.musicVol = 0.6; this.game = null; this.world = null;
@@ -60,11 +61,12 @@ export class Audio {
       window.addEventListener('pointerdown', this._kick, true); window.addEventListener('keydown', this._kick, true);
       // the desktop build allows autoplay (electron/main.js), so its menu music can start without a click
       if (typeof navigator !== 'undefined' && /Electron/i.test(navigator.userAgent || '')) setTimeout(this._kick, 0);
+      setTimeout(() => this.preload(), 100); // decoding needs no gesture: start it now
     }
   }
 
   // ------------------------------------------------------------------ start-up
-  // Idempotent. Returns a promise that resolves when every sample is decoded (nobody has to wait for it).
+  // Idempotent. Returns a promise that resolves when every sample is playable (nobody has to wait for it).
   init() {
     if (this._init) { if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume().catch(() => {}); return this._init; }
     const AC = typeof window !== 'undefined' && (window.AudioContext || window.webkitAudioContext);
@@ -117,35 +119,52 @@ export class Audio {
     }
     return b;
   }
-  async load() {
-    const t0 = performance.now(); const jobs = [];
-    try { this.initMusic(); } catch (e) { /* the score is optional */ }
-    await new Promise(r => setTimeout(r, 0)); // let the click that started the engine finish first
-    // the procedural fallback set renders a moment later: it only matters if a sample is missing
-    jobs.push(new Promise(r => setTimeout(r, 250)).then(() => { const syn = new Synth(); return syn.synthAll().then(() => { this.syn = syn.buf; }); }).catch(() => {}));
-    for (const name in FILES) {
-      if (META.music[name]) continue; // music stays compressed and is streamed by an <audio> element
-      jobs.push(this.decode(FILES[name]).then(b => this.adopt(name, b)).catch(() => { this.failed.push(name); }));
+  // Decoding needs neither a running context nor a gesture, so it starts right after page load on an offline
+  // context: the samples are ready before the first click and no decode burst lands on the first seconds of a match.
+  // Two files at a time, most urgent first; once a match is running whatever is left trickles in one file at a time.
+  // Music is not in the list: it stays compressed and is streamed by an <audio> element.
+  preload() {
+    if (this._pre) return this._pre;
+    if (!this.dctx) {
+      const OC = typeof window !== 'undefined' && (window.OfflineAudioContext || window.webkitOfflineAudioContext);
+      try { this.dctx = OC ? new OC(1, 1, 44100) : this.ctx; } catch (e) { this.dctx = this.ctx; }
+      if (!this.dctx) return Promise.resolve(); // nothing can decode yet: init() asks again with the live context
     }
-    await Promise.all(jobs);
+    const t0 = performance.now(), rank = (n) => { const i = LOAD_ORDER.indexOf(n); return i < 0 ? 99 : i; };
+    const names = Object.keys(FILES).filter(n => !META.music[n]).sort((x, y) => rank(x) - rank(y)); let next = 0, busy = 0;
+    const nap = (ms) => new Promise(r => setTimeout(r, ms)), playing = () => !!this.game && this.game.state === 'play';
+    const work = async () => {
+      while (next < names.length) {
+        while (busy > 0 && playing()) await nap(100);
+        const name = names[next++]; if (!name) break; busy++;
+        try { this.adopt(name, await this.decode(FILES[name])); } catch (e) { this.failed.push(name); }
+        busy--; if (playing()) await nap(50);
+      }
+    };
+    return (this._pre = Promise.all([work(), work()]).then(() => {
+      this.decodeMs = Math.round(performance.now() - t0);
+      // the procedural set (fallback for anything missing, synthetic layer of the abilities) renders last, one sound at a time
+      const syn = new Synth(); this.syn = syn.buf; this._synP = syn.synthAll().catch(() => {});
+    }));
+  }
+  async load() {
+    const t0 = performance.now();
+    try { this.initMusic(); } catch (e) { /* the score is optional */ }
+    await this.preload(); // usually finished long before the first click
     try { this.startAmbience(); } catch (e) { /* ambience is optional */ }
     this.loaded = true; this.loadMs = Math.round(performance.now() - t0);
+    await this._synP;
   }
   decode(bytes) {
     const ab = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength); // decodeAudioData detaches its input
-    return new Promise((res, rej) => { const p = this.ctx.decodeAudioData(ab, res, rej); if (p && p.catch) p.catch(rej); });
+    return new Promise((res, rej) => { const p = this.dctx.decodeAudioData(ab, res, rej); if (p && p.catch) p.catch(rej); });
   }
-  // A decoded file is either a loop bed or a sprite sheet that is cut into one AudioBuffer per sound.
+  // A decoded file is either a loop bed or a sprite sheet. Sprites are played straight out of their sheet (start
+  // offset + duration): nothing is copied, the decoded audio exists once in memory. A playable is { b, o, d }.
   adopt(name, b) {
     if (META.loops[name]) { this.loopBuf[name] = b; return; }
     const list = this.sheetIndex[name]; if (!list) return;
-    const sr = b.sampleRate, nch = b.numberOfChannels;
-    for (const [n, st, ln] of list) {
-      const a = Math.min(b.length - 1, Math.round(st * sr)), len = Math.max(1, Math.min(b.length - a, Math.round(ln * sr)));
-      const o = this.ctx.createBuffer(nch, len, sr);
-      for (let c = 0; c < nch; c++) o.copyToChannel(b.getChannelData(c).subarray(a, a + len), c);
-      this.buf[n] = o;
-    }
+    for (const [n, st, ln] of list) { const o = Math.min(st, Math.max(0, b.duration - 0.01)); this.buf[n] = { b, o, d: Math.max(0.005, Math.min(ln, b.duration - o)) }; }
   }
 
   // ------------------------------------------------------------------ public API
@@ -159,7 +178,7 @@ export class Audio {
     if (G) { let d = 0; for (const v of G.v) if (this.buf[v]) d++; return { kind: d ? 'sample' : this.syn[this.fallback(name)] ? 'synth' : null, variants: G.v.length, decoded: d }; }
     return { kind: this.buf[name] ? 'sample' : this.syn[name] ? 'synth' : null, variants: 1, decoded: this.buf[name] ? 1 : 0 };
   }
-  stats() { const now = this.ctx ? this.ctx.currentTime : 0; let n = 0; for (const v of this.voices) if (v.end > now) n++; return { voices: n, ...this.stat, loaded: this.loaded, loadMs: this.loadMs, failed: this.failed.slice(), buffers: Object.keys(this.buf).length, indoor: +this.indoor.toFixed(2), state: this.st.state }; }
+  stats() { const now = this.ctx ? this.ctx.currentTime : 0; let n = 0; for (const v of this.voices) if (v.end > now) n++; return { voices: n, ...this.stat, loaded: this.loaded, loadMs: this.loadMs, decodeMs: this.decodeMs, failed: this.failed.slice(), buffers: Object.keys(this.buf).length, indoor: +this.indoor.toFixed(2), state: this.st.state }; }
   setListener(pos, yaw) {
     const L = this.listener; L.x = pos.x; L.y = pos.y; L.z = pos.z; L.yaw = yaw; this.occBudget = 6;
     const g = this.game; if (!g || !this.ready || g.state !== 'play') return;
@@ -221,7 +240,7 @@ export class Audio {
     const R = META.reloadMap[weaponId] || { src: 'ak74' }; const t0 = this.ctx.currentTime + 0.03, dur = duration || (def && def.reload) || 2;
     if (R.seq) { for (const e of R.seq) this.sched(e[0], t0 + e[1] * dur, e[2], e[3]); return; }
     const S = META.reloads[R.src], rate = R.rate || 1; if (!S) return;
-    const ev = S.ev, last = ev[ev.length - 1], lb = this.buf[last[0]]; const tail = lb ? lb.duration / rate : 0.4;
+    const ev = S.ev, last = ev[ev.length - 1], lb = this.buf[last[0]]; const tail = lb ? lb.d / rate : 0.4;
     const k = Math.min(1, (dur + 0.06 - tail) / Math.max(0.01, last[1] * dur)); // squeeze so the last action ends inside the reload
     for (const e of ev) this.sched(e[0], t0 + e[1] * dur * k, 0.95, rate);
   }
@@ -229,8 +248,8 @@ export class Audio {
   sched(n, when, gain, rate) {
     const G = this.groups[n]; const b = this.buf[G ? this.pick(n, G) : n] || this.syn.reload; if (!b) return;
     const ctx = this.ctx, s = ctx.createBufferSource(), g = ctx.createGain();
-    s.buffer = b; s.playbackRate.value = rate * (0.98 + Math.random() * 0.04); g.gain.value = gain * (G ? G.g : 0.8);
-    s.connect(g); g.connect(this.bus.f); s.start(when); this.reloadSrc.push(s);
+    s.buffer = b.b; s.playbackRate.value = rate * (0.98 + Math.random() * 0.04); g.gain.value = gain * (G ? G.g : 0.8);
+    s.connect(g); g.connect(this.bus.f); s.start(when, b.o, b.d); this.reloadSrc.push(s);
   }
 
   // ------------------------------------------------------------------ voices
@@ -264,8 +283,8 @@ export class Audio {
     }
     c.g.gain.value = gain; c.rg.gain.value = send > 0.01 ? send : 0;
     if (spatial) { c.f.frequency.value = lpf; c.p.pan.value = pan; }
-    const s = ctx.createBufferSource(); s.buffer = buf; s.playbackRate.value = rate; s.connect(c.head); s.start(when);
-    const v = this.vpool.pop() || {}; v.src = s; v.c = c; v.end = when + buf.duration / rate + 0.03; v.score = score; V.push(v); S.started++;
+    const s = ctx.createBufferSource(); s.buffer = buf.b; s.playbackRate.value = rate; s.connect(c.head); s.start(when, buf.o, buf.d);
+    const v = this.vpool.pop() || {}; v.src = s; v.c = c; v.end = when + buf.d / rate + 0.03; v.score = score; V.push(v); S.started++;
   }
   release(v) { const c = v.c; v.src = v.c = null; this.vpool.push(v); if (c.pool.length < 24) c.pool.push(c); else { c.g.disconnect(); c.rg.disconnect(); } }
   // Start a group: variant choice, spatial chain, occlusion, near / far crossfade, layers.
