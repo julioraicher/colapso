@@ -2,11 +2,13 @@
 // minimap from a top-down colour bake of the voxel world, deploy map, scoreboard.
 import * as THREE from 'three';
 import { SX, SZ, SY, VS, MATDEF, MAT } from './world.js';
-import { WEAPONS, PRIMARIES } from './weapons.js';
+import { WEAPONS, PRIMARIES, SECONDARIES, CLASSES, buildGun } from './weapons.js';
 import { scanTunnel } from './abilities.js';
 import { BASES } from './mapgen.js';
 
 const $ = (id) => document.getElementById(id);
+export const RANKS = [['RECRUTA', 0], ['SOLDADO', 1500], ['CABO', 4000], ['SARGENTO', 8000], ['SUBTENENTE', 14000], ['TENENTE', 22000], ['CAPITÃO', 34000], ['MAJOR', 50000], ['CORONEL', 72000], ['GENERAL QUÂNTICO', 100000]];
+export function rankOf(xp) { let i = 0; while (i + 1 < RANKS.length && xp >= RANKS[i + 1][1]) i++; return { name: RANKS[i][0], i, next: RANKS[i + 1] ? RANKS[i + 1][1] : null }; }
 const WDESC = {
   k7: 'Fuzil automático versátil. Recuo vertical forte, controlável.',
   vespa: 'SMG de cadência alta. Domina interiores do laboratório.',
@@ -55,12 +57,36 @@ export class HUD {
   // ---------- deploy ----------
   drawDeploy() {
     const g = this.g;
-    $('wlist').innerHTML = PRIMARIES.map(id => {
+    const C = CLASSES[g.cls];
+    $('classes').innerHTML = Object.entries(CLASSES).map(([k, c], i) => `<div class="cls ${g.cls === k ? 'sel' : ''}" data-k="${k}" style="--cc:${c.color}"><div class="ic">${c.icon}</div><h3>${i + 1} · ${c.name}</h3><p>${c.gadget}</p></div>`).join('');
+    for (const el of document.querySelectorAll('.cls')) el.onclick = () => g.setClass(el.dataset.k);
+    const st = (lab, v) => `<div class="stat">${lab}<i><b style="width:${Math.max(4, Math.min(100, v * 100))}%"></b></i></div>`;
+    $('wlist').innerHTML = C.weapons.map(id => {
       const w = WEAPONS[id]; const dps = w.dmg * w.pellets * w.rpm / 60;
-      const st = (lab, v) => `<div class="stat">${lab}<i><b style="width:${Math.min(100, v * 100)}%"></b></i></div>`;
-      return `<div class="wcard ${g.loadout === id ? 'sel' : ''}" data-id="${id}"><h4>${w.name}</h4><p>${WDESC[id]}</p>${st('DANO/S', dps / 600)}${st('ALCANCE', w.falloff[1] / 140)}${st('CONTROLE', 1 - w.recoilV / 0.08)}${st('DESTRUIÇÃO', w.vox * w.pellets / 20 + 0.1)}</div>`;
+      return `<div class="wcard ${g.loadout === id ? 'sel' : ''}" data-id="${id}"><h4>${w.name}</h4>${st('DANO/S', dps / 600)}${st('ALCANCE', w.falloff[1] / 300)}${st('CONTROLE', 1 - w.recoilV / 0.1)}</div>`;
     }).join('');
     for (const el of document.querySelectorAll('.wcard')) el.onclick = () => { g.loadout = el.dataset.id; this.drawDeploy(); };
+    $('slist').innerHTML = SECONDARIES.map(id => `<div class="chip ${g.secondary === id ? 'sel' : ''}" data-id="${id}">${WEAPONS[id].name}</div>`).join('');
+    for (const el of document.querySelectorAll('.chip')) el.onclick = () => { g.secondary = el.dataset.id; this.drawDeploy(); };
+    $('gbox').style.setProperty('--cc', C.color);
+    $('gbox').innerHTML = `<b style="color:${C.color}">${C.icon} ${C.gadget}</b><p>${C.gdesc}</p>`;
+    // weapon detail + spinning 3D preview
+    const w = WEAPONS[g.loadout];
+    const ttk = Math.ceil(100 / (w.dmg * w.pellets)), ttkMs = Math.round((ttk - 1) * 60000 / w.rpm);
+    $('wdetail').innerHTML = `<canvas id="wprev" width="520" height="260"></canvas><h3>${w.name}</h3><p>${w.desc}</p><div class="spec">
+      <span>VELOCIDADE DE BOCA</span><span>${w.vel} m/s</span>
+      <span>QUEDA A 100 m</span><span>${(0.5 * 9.81 * (100 / w.vel) ** 2 * 100).toFixed(1)} cm · voo ${(100 / w.vel * 1000).toFixed(0)} ms</span>
+      <span>CADÊNCIA</span><span>${w.rpm} disparos/min ${w.bolt ? '· ferrolho' : w.auto ? '· automática' : '· semi'}</span>
+      <span>DANO</span><span>${w.dmg}${w.pellets > 1 ? ' × ' + w.pellets : ''} · cabeça ×${w.head}</span>
+      <span>TIROS P/ ABATER</span><span>${ttk} (≈${ttkMs} ms de perto)</span>
+      <span>PENTE</span><span>${w.mag} / ${w.reserve}</span>
+      <span>MIRA</span><span>${w.sight === 'scope' ? 'luneta ' + w.zoom + 'x' : w.sight === 'iron' ? 'mira aberta' : w.sight === 'reddot' ? 'red dot' : 'holográfica'}</span>
+      <span>DESTRUIÇÃO</span><span>${'■'.repeat(Math.min(5, w.vox))}${'□'.repeat(5 - Math.min(5, w.vox))}</span></div>`;
+    this.preview(g.loadout);
+    // rank
+    const xp = +(localStorage.getItem('colapso.xp') || 0); const R = rankOf(xp);
+    $('rankbox').innerHTML = `<b>${R.name}</b><br>${xp.toLocaleString('pt-BR')} XP · próxima: ${R.next ? R.next.toLocaleString('pt-BR') : '—'}`;
+    // map
     const cv = $('dmap'); const ctx = cv.getContext('2d');
     const S = cv.width / (SX * VS);
     ctx.imageSmoothingEnabled = false; ctx.globalAlpha = 1; ctx.drawImage(this.mapC, 0, 0, cv.width, cv.height);
@@ -70,7 +96,7 @@ export class HUD {
     for (const o of opts) {
       const sel = g.deploySel && g.deploySel.x === o.x && g.deploySel.z === o.z;
       ctx.strokeStyle = sel ? '#fff' : '#39e6ff'; ctx.lineWidth = sel ? 3 : 1.5;
-      ctx.beginPath(); ctx.arc(o.x * S, o.z * S, sel ? 24 : 20, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(o.x * S, o.z * S, sel ? 22 : 18, 0, Math.PI * 2); ctx.stroke();
       if (o.label === 'BASE') { ctx.fillStyle = '#39e6ff'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('BASE', o.x * S, o.z * S + 4); }
     }
     const eb = BASES[1]; ctx.fillStyle = '#ff8a2a'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('BASE ÔMEGA', eb.x * S, eb.z * S + 4);
@@ -79,6 +105,24 @@ export class HUD {
       let best = null, bd = 50; for (const o of opts) { const d = Math.hypot(o.x * S - mx, o.z * S - my); if (d < bd) { bd = d; best = o; } }
       if (best) { g.deploySel = best; this.drawDeploy(); }
     };
+  }
+  // Small dedicated renderer for the loadout preview (only alive on the deploy screen)
+  preview(id) {
+    const cv = $('wprev'); if (!cv) return;
+    if (!this.pr) {
+      this.prC = document.createElement('canvas'); this.prC.width = 520; this.prC.height = 260;
+      this.pr = new THREE.WebGLRenderer({ canvas: this.prC, antialias: true, alpha: true });
+      this.ps = new THREE.Scene(); this.ps.add(new THREE.HemisphereLight(0xbfd8ff, 0x303040, 2.4)); const d = new THREE.DirectionalLight(0xffffff, 1.5); d.position.set(1, 1, 1); this.ps.add(d);
+      const rim = new THREE.DirectionalLight(0x39e6ff, 2); rim.position.set(-1, 0.3, -1); this.ps.add(rim);
+      this.pc = new THREE.PerspectiveCamera(30, 2, 0.01, 10); this.pc.position.set(0, 0.12, 2.0); this.pc.lookAt(0, 0, 0);
+      const loop = () => { if (this.g.state !== 'deploy') { this.prLoop = false; return; } this.prLoop = true; if (this.pg) { this.pg.rotation.y += 0.01; this.pr.render(this.ps, this.pc); const c2 = $('wprev'); if (c2) { const x = c2.getContext('2d'); x.clearRect(0, 0, 520, 260); x.drawImage(this.prC, 0, 0); } } requestAnimationFrame(loop); };
+      this.prStart = loop;
+    }
+    if (this.pg) this.ps.remove(this.pg);
+    const w = WEAPONS[id]; this.pg = new THREE.Group(); const gun = buildGun(w.type, { sight: w.sight }); gun.position.z = 0.15; this.pg.add(gun); this.pg.rotation.y = -1.1; this.ps.add(this.pg);
+    const s = { sniper: 1.5, lmg: 1.45, lmg2: 1.45, dmr: 1.55, rifle: 1.75, bullpup: 1.9, shotgun: 1.8, smg: 2.4, pdw: 2.4, pistol: 3.6, mpistol: 3.6, revolver: 3.2 }[w.type] || 2;
+    this.pg.scale.setScalar(s * 1.05);
+    if (!this.prLoop) this.prStart();
   }
   flagIcon(ctx, x, y, f, r) {
     const col = f.owner === 0 && f.cap >= 1 ? '#39e6ff' : f.owner === 1 && f.cap <= -1 ? '#ff8a2a' : '#aab';
@@ -107,6 +151,7 @@ export class HUD {
     this.msgT = 2;
   }
   event(t) { const el = $('evt'); if (!t) { el.classList.add('hidden'); return; } el.classList.remove('hidden'); el.textContent = t; }
+  breath(scoped, hold, b) { const el = $('breath'); el.classList.toggle('hidden', !scoped); if (scoped) el.textContent = hold ? `SEGURANDO O FÔLEGO ${b.toFixed(1)}s` : b <= 0.05 ? 'SEM FÔLEGO' : 'SHIFT · SEGURAR O FÔLEGO'; }
   hideScore() { if (this.g.state === 'play') $('score').classList.add('hidden'); }
   // ---------- per-frame ----------
   update(dt) {
@@ -124,7 +169,8 @@ export class HUD {
     $('ammo').innerHTML = `${W.mag}<small> / ${W.reserve}</small>`;
     $('ammo').style.color = W.mag <= D.mag * 0.25 ? '#ff6a5a' : '';
     $('wname').textContent = g.reloadT > 0 ? 'RECARREGANDO…' : D.name;
-    $('nades').textContent = '◆'.repeat(g.nades) + '◇'.repeat(2 - g.nades) + ' GRANADAS [G]';
+    const gl = g.cls === 'engenheiro' ? `RPG ${g.weapons.gadget ? g.weapons.gadget.mag + g.weapons.gadget.reserve : 0}` : `${CLASSES[g.cls].gadget.split(' ')[0]} ×${g.gadget}`;
+    $('nades').textContent = '◆'.repeat(g.nades) + ' GRANADAS [G] · ' + gl + ' [F]';
     $('hpv').textContent = Math.ceil(p.hp); $('hpbar').firstElementChild.style.width = p.hp + '%';
     $('hpbar').firstElementChild.style.background = p.hp < 35 ? '#ff5a4a' : '';
     $('env').textContent = Math.floor(g.energy); $('enbar').firstElementChild.style.width = g.energy + '%';

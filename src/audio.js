@@ -72,6 +72,12 @@ export class Audio {
     const B = this.buf;
     const jobs = {
       rifle: [0.5, (oc, o) => this.gunshot(oc, o, { crackF: 3000, crack: 0.9, blastF: 900, blast: 1.0, len: 0.35, thumpF: 140, thump: 0.9 })],
+      sniper: [1.2, (oc, o) => this.gunshot(oc, o, { crackF: 2200, crack: 1.4, blastF: 500, blast: 1.3, len: 0.9, thumpF: 90, thump: 1.4 })],
+      rocket: [1.4, (oc, o) => {
+        const n = this.noise(oc, 1.4); const bp = oc.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.setValueAtTime(900, 0); bp.frequency.exponentialRampToValueAtTime(300, 1.2); bp.Q.value = 0.8;
+        n.connect(bp); this.env(oc, bp, 0.01, 1.2, 1.2).connect(o); n.start();
+        const t = oc.createOscillator(); t.frequency.setValueAtTime(70, 0); t.frequency.exponentialRampToValueAtTime(30, 0.4); this.env(oc, t, 0.003, 1.2, 0.4).connect(o); t.start(); t.stop(0.5);
+      }],
       smg: [0.35, (oc, o) => this.gunshot(oc, o, { crackF: 3500, crack: 0.6, blastF: 1300, blast: 0.8, len: 0.22, thumpF: 180, thump: 0.6 })],
       shotgun: [0.8, (oc, o) => this.gunshot(oc, o, { crackF: 1800, crack: 0.8, blastF: 500, blast: 1.2, len: 0.6, thumpF: 100, thump: 1.2 })],
       dmr: [0.8, (oc, o) => this.gunshot(oc, o, { crackF: 2500, crack: 1.2, blastF: 700, blast: 1.1, len: 0.55, thumpF: 110, thump: 1.1 })],

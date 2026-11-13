@@ -10,6 +10,22 @@ Jogar direto no navegador: **https://julioraicher.github.io/colapso/** (se o Git
 
 Sem instalar, offline: [versão navegador](https://github.com/julioraicher/colapso/releases/latest/download/Colapso-navegador.zip) → extrair → abrir `index.html`.
 
+Todas as versões: [Releases](https://github.com/julioraicher/colapso/releases).
+
+### Controles
+
+| Tecla | Ação | Tecla | Ação |
+|---|---|---|---|
+| WASD · ESPAÇO | mover · pular | SHIFT | correr / **segurar o fôlego** na luneta |
+| CTRL | agachar (correndo = deslizar) | Mouse E / D | atirar / mirar |
+| R | recarregar | 1 / 2 / roda | primária / secundária |
+| **F** ou 3 | gadget da classe | G | granada |
+| **Q** | tunelamento | **E** | superposição / colapsar |
+| Z ou T | marcar inimigo (spot) | TAB | placar |
+| P | mostrar FPS | ESC | pausa |
+
+Na tela de implantação: 1–4 escolhe a classe, ESPAÇO/ENTER entra em combate.
+
 ## A mecânica: dualidade onda-partícula como arma
 
 | Tecla | Habilidade | Física por trás |
@@ -23,13 +39,28 @@ As duas conversam com a destruição: explodir uma parede grossa a deixa fina o 
 
 - **Mundo voxel 192×48×192 (0,5 m)**, malha por chunks com AO por vértice, sombras da lua por *ray-march* e **luz colorida neon propagada por BFS** (canal RGB, atenuação exponencial), tudo pré-calculado no vértice: o custo em GPU é de um `MeshBasicMaterial`.
 - **Destruição**: tiros desgastam voxels (HP por material: vidro 1, madeira 2, concreto 6, metal 40); granadas abrem crateras; **integridade estrutural** por *flood fill* derruba o que fica sem apoio (e esmaga quem estiver embaixo). Navegação dos bots é recalculada na hora.
-- **Gunplay**: 4 primárias (K-7, Vespa, Martelo 12, Lança DMR) + pistola. Recuo vertical com recuperação parcial, *bloom*, queda de dano por distância, multiplicador de cabeça, ADS com FOV por arma e luneta.
+- **4 classes no estilo Battlefield**, cada uma com armas e gadget próprios:
+
+  | Classe | Armas | Gadget (F) |
+  |---|---|---|
+  | Assalto | K-7 Carabina, Arco B-9 Bullpup | Seringa de adrenalina (cura + sprint), +1 granada, regeneração rápida |
+  | Engenheiro | Vespa SMG, Faísca PDW, Martelo 12 | Lança-foguetes RPG-Q (derruba prédios), resistência a explosões |
+  | Suporte | Trovão M-100 (cinto de 100), Bigorna .30 (tambor de 60) | Caixa de suprimentos (munição + cura em área), munição extra |
+  | Reconhecimento | Lança DMR (4x), Órion .338 (8x, ferrolho), Vigia 7.62 (5x) | Sensor de movimento (marca inimigos em 30 m) |
+
+  Secundárias para qualquer classe: P9, Juiz .44 (revólver), Rajada MP (automática).
+- **Balística por projétil**, não *hitscan*: cada bala integra `x(t) = x₀ + v₀t + ½gt²` com arrasto quadrático `dv/dt = −k·v|v|`, logo `v(x) = v₀e^(−kx)` e o tempo de voo é `t(x) = (e^(kx) − 1)/(k·v₀)`. Dano ∝ (v/v₀)², então o alcance pesa de verdade. Ex.: a Vespa (420 m/s) leva ~0,25 s e cai ~29 cm em 100 m; a Órion (900 m/s) leva ~0,11 s e cai ~6 cm. A ficha de cada arma no menu mostra velocidade, queda a 100 m, tempo de voo, TTK e poder de destruição.
+- **Gunplay pesado**: recuo vertical com viés horizontal por arma, recuperação parcial, *bloom*, multiplicador de cabeça, ADS com FOV por mira (iron, red dot, holo, lunetas 4x/5x/8x com balanço de respiração), estalo de bala passando perto (*whiz*) e supressão.
+- **Animações de recarga por tipo**: troca de pente (mais lenta com a arma vazia), tampa e cinto da LMG, cartucho a cartucho na escopeta, tambor do revólver, ferrolho manual nos snipers, foguete no RPG.
+- **Progressão**: medalhas (multi-kill, tiro longo > 50 m, headshot, kill pelo eco, kill saindo do túnel, sequências), XP por partida e 10 patentes de RECRUTA a GENERAL QUÂNTICO; loadout salvo entre partidas; 3 níveis de dificuldade.
+- **Mapa detalhado**: 15 veículos estacionados com faróis que iluminam o chão, letreiros neon (KAPPA, LAB, HANGAR, OMEGA), torre de sniper com passarela até o 3º andar do laboratório, servidores piscando, radar no telhado, caixa d'água, pátio de geradores, poças, calçadas, cercas e **25 barris explosivos** que explodem em cadeia.
+- **Gráficos mais realistas sem custo**: halo de luz (*bloom* falso) em volta de cada lâmpada e reflexo alongado no asfalto molhado, tudo em 2 *draw calls*, reconstruído só quando uma lâmpada é destruída.
 - **Áudio 100% procedural** (WebAudio): tiros = estalo supersônico + blast + *thump*; propagação com **atraso c = 343 m/s**, absorção do ar (passa-baixa ∝ distância), lei do inverso da distância, reverb por resposta ao impulso sintética. Trovões chegam atrasados conforme a distância do relâmpago.
 - **Bots**: A* em grade 2,5D, busca de cobertura quando feridos/suprimidos/recarregando, percepção com linha de visada, tempo de reação, erro de mira que converge, rajadas, *strafe*, agachar, granadas balísticas contra quem se esconde, objetivo de conquista, *rubber-band* de dificuldade.
 - **Evento de mapa**: quando os tickets caem, o reator central entra em sobrecarga (sirene + contagem de 20 s) e explode em cadeia, remodelando o centro do mapa e apagando sua luz.
 - **Luz dinâmica destrutível**: atire nas lâmpadas para escurecer uma sala (a luz é recalculada localmente por BFS).
 - **Conquista**: 3 bandeiras (Laboratório, Reator, Hangar), 300 tickets, sangria de tickets por domínio, tela de implantação com escolha de arma e ponto de spawn, minimapa, killfeed, placar.
-- **Leve**: ~200 draw calls, sem texturas, resolução adaptativa automática (mantém ~60 FPS em GPU integrada), opção de qualidade baixa.
+- **Leve**: 110–250 draw calls (modelos de armas e soldados fundidos por material), sem texturas, resolução adaptativa automática (mantém ~60 FPS em GPU integrada), opção de qualidade baixa.
 
 ## Desenvolvimento
 

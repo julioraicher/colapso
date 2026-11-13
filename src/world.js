@@ -12,6 +12,7 @@ export const MAT = {
   AIR: 0, BEDROCK: 1, DIRT: 2, GRASS: 3, ASPHALT: 4, CONCRETE: 5, BRICK: 6, WOOD: 7,
   METAL: 8, GLASS: 9, SAND: 10, ROOF: 11, PAINT: 12, RUST: 13, LEAF: 14, LINE: 15, TRIM: 16,
   LAMP_C: 20, LAMP_O: 21, LAMP_M: 22, LAMP_W: 23, LAMP_R: 24,
+  BARREL: 25, WATER: 26, ASPHALT2: 27, CAR_A: 28, CAR_B: 29, CAR_C: 30, TIRE: 31, PANEL: 32, OLIVE: 33,
 };
 export const MATDEF = [];
 function md(id, color, hp, vari = 0.08, debris = color, emit = null) { MATDEF[id] = { color: new THREE.Color(color), hp, vari, debris: new THREE.Color(debris), emit }; }
@@ -39,6 +40,16 @@ export function setPalette(p) {
   md(MAT.LAMP_M, 0xff7af0, 3, 0, 0xff7af0, [15, 5, 14]);
   md(MAT.LAMP_W, 0xf2f6ff, 3, 0, 0xf2f6ff, [14, 13, 12]);
   md(MAT.LAMP_R, 0xff5040, 3, 0, 0xff5040, [15, 3, 2]);
+  // detail materials (map v2)
+  md(MAT.BARREL, p.barrel ?? 0xb3261c, 2, 0.06);
+  md(MAT.WATER, p.water ?? 0x1c2633, 8, 0.03, p.asphalt);
+  md(MAT.ASPHALT2, p.asphalt2 ?? 0x262a32, 8, 0.05);
+  md(MAT.CAR_A, p.carA ?? 0x8a1f24, 10, 0.03);
+  md(MAT.CAR_B, p.carB ?? 0x2b4b6e, 10, 0.03);
+  md(MAT.CAR_C, p.carC ?? 0x8f8c84, 10, 0.03);
+  md(MAT.TIRE, p.tire ?? 0x121214, 6, 0.04);
+  md(MAT.PANEL, p.panel ?? 0x1b2029, 8, 0.04);
+  md(MAT.OLIVE, p.olive ?? 0x46553c, 12, 0.06);
 }
 // light level → linear intensity (exponential falloff ≈ attenuation per 0.5 m)
 const LF = new Float32Array(16); for (let i = 1; i < 16; i++) LF[i] = Math.pow(0.78, 15 - i) * 0.95;

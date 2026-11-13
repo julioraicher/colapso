@@ -2,7 +2,7 @@
 // and settling error, objective logic for Conquest, grenade use against cover.
 import * as THREE from 'three';
 import { VS, SX, SZ, SY } from './world.js';
-import { lam, box, buildGun, WEAPONS } from './weapons.js';
+import { lam, box, buildGun, WEAPONS, PRIMARIES, flatten } from './weapons.js';
 import { G } from './mapgen.js';
 
 export const NC = 1.0;                 // nav cell size (m)
@@ -102,18 +102,27 @@ export function buildSoldier(team, gunType) {
   box(arms, 0.12, 0.12, 0.42, -0.16, -0.04, -0.26, body, 0.4);
   const gun = buildGun(gunType, { accent: c.visor }); gun.scale.setScalar(1.15); gun.position.set(0.05, 0.02, -0.38); arms.add(gun);
   root.userData = { hips, torso, head, legs, arms, gun };
+  flatten(root);
   return root;
 }
 
+let _mk = null;
+function MARKER() {
+  if (_mk) return _mk;
+  const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d');
+  x.fillStyle = '#ff3b30'; x.strokeStyle = '#000'; x.lineWidth = 4; x.beginPath(); x.moveTo(8, 10); x.lineTo(56, 10); x.lineTo(32, 54); x.closePath(); x.stroke(); x.fill();
+  _mk = new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false, transparent: true, fog: false }); return _mk;
+}
 const NAMES = ['Vega', 'Orion', 'Kappa', 'Tau', 'Rho', 'Sigma', 'Lyra', 'Draco', 'Hydra', 'Quasar', 'Pulsar', 'Fermi', 'Bohr', 'Dirac', 'Planck', 'Higgs', 'Curie', 'Gauss', 'Euler', 'Noether', 'Pauli', 'Maxwell', 'Tesla', 'Lorentz'];
 let nameI = 0;
 
 export class Bot {
   constructor(game, team) {
     this.g = game; this.team = team; this.name = NAMES[nameI++ % NAMES.length] + '-' + (10 + Math.random() * 89 | 0);
-    const wid = ['k7', 'k7', 'vespa', 'lanca', 'martelo'][Math.random() * 5 | 0];
+    const wid = PRIMARIES[Math.random() * PRIMARIES.length | 0];
     this.wid = wid; this.wdef = WEAPONS[wid];
     this.model = buildSoldier(team, this.wdef.type); game.scene.add(this.model);
+    if (team === 1) { this.marker = new THREE.Sprite(MARKER()); this.marker.scale.set(0.45, 0.45, 1); this.marker.position.y = 2.3; this.marker.visible = false; this.model.add(this.marker); }
     this.pos = new THREE.Vector3(); this.yaw = 0; this.alive = false; this.hp = 100;
     this.path = null; this.pi = 0; this.repath = 0; this.target = null; this.seeT = 0; this.lastSeen = null; this.lastSeenT = -99;
     this.cool = 0; this.burst = 0; this.ammo = this.wdef.mag; this.reloadT = 0; this.aimErr = 0.1; this.react = 0;
@@ -161,7 +170,7 @@ export class Bot {
       this.yaw = lerpAngle(this.yaw, wantYaw, Math.min(1, dt * 8));
       this.react -= dt;
       // keep distance: stop to shoot at range, strafe otherwise
-      if ((d < 25 || this.wdef.type === 'dmr') && !this.seekCover) moving = false;
+      if ((d < 25 || ['dmr', 'sniper', 'sniper2', 'lmg', 'lmg2'].includes(this.wdef.type)) && !this.seekCover) moving = false;
       this.aimErr = Math.max(0.012 / this.skill, this.aimErr - dt * 0.12 * this.skill);
       this.cool -= dt;
       if (this.react <= 0 && this.cool <= 0 && this.reloadT <= 0) {
@@ -225,7 +234,7 @@ export class Bot {
   think(now) {
     const g = this.g;
     // rubber-band: the team behind on tickets fights harder (keeps matches close and tense)
-    if (g.tickets) { const deficit = g.tickets[1 - this.team] - g.tickets[this.team]; this.skill = this.baseSkill * (1 + 0.3 * Math.max(0, Math.min(1, deficit / 60))); }
+    if (g.tickets) { const deficit = g.tickets[1 - this.team] - g.tickets[this.team]; this.skill = this.baseSkill * (1 + 0.3 * Math.max(0, Math.min(1, deficit / 60))) * (this.team === 1 ? (g.diffMul || 1) : 1); }
     // perception: nearest visible enemy (incl. player & quantum decoys) within cone or recently alerted
     let best = null, bd = 1e9;
     const eye = this.eye;
@@ -238,7 +247,7 @@ export class Bot {
       const inCone = (dx * fx + dz * fz) / d > -0.2 || d < 8 || e === this.alertBy;
       if (!inCone) continue;
       // stealth: crouched far targets & tunnelling player harder to see
-      if (e.isPlayer && e.phased) continue;
+      if (e.isPlayer && (e.p.phased || g.spawnProtect > 0)) continue;
       if (d < bd && g.world.los(eye, ep)) { bd = d; best = e; }
     }
     if (best) {

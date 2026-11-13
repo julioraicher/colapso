@@ -58,6 +58,7 @@ canvas#gl { position:fixed; inset:0; width:100%; height:100%; display:block; }
 #msg .big { font-size:22px; font-weight:700; color:#fff; } #msg .pts { color:#ffd25a; }
 #evt { position:absolute; top:120px; left:50%; transform:translateX(-50%); font-size:16px; letter-spacing:4px; font-weight:700; color:#ff4fd8; text-shadow:0 0 12px rgba(255,79,216,.8); animation:pulse2 .6s infinite alternate; text-align:center; }
 @keyframes pulse2 { to { opacity:.55; } }
+#breath { position:absolute; left:50%; top:calc(50% + 120px); transform:translateX(-50%); font-size:12px; letter-spacing:3px; color:#fff; text-shadow:0 1px 4px #000; z-index:3; }
 #tunhint { position:absolute; left:50%; top:calc(50% + 34px); transform:translateX(-50%); font-size:12px; letter-spacing:2px; color:var(--c); text-shadow:0 1px 4px #000; white-space:nowrap; }
 #tunhint.no { color:#ff5a4a; }
 /* damage */
@@ -83,10 +84,26 @@ button.pri { background:rgba(57,230,255,.2); border-color:var(--c); }
 .row { display:flex; align-items:center; gap:14px; margin:12px 0; font-size:14px; letter-spacing:2px; }
 .row label { width:200px; color:var(--dim); } .row input[type=range] { flex:1; accent-color:#39e6ff; } .row span { width:50px; text-align:right; }
 select { font:inherit; background:#0d141d; color:#fff; border:1px solid #345; padding:6px; }
-#deploy .wrap { display:flex; gap:26px; align-items:flex-start; }
+#deploy .wrap { display:flex; gap:18px; align-items:flex-start; }
+.panel.dep { max-width:1180px; padding:18px 22px; }
+.dhead { display:flex; justify-content:space-between; align-items:center; }
+#rankbox { font-size:12px; letter-spacing:2px; color:var(--dim); text-align:right; } #rankbox b { color:#ffd25a; font-size:15px; }
+#classes { display:flex; gap:8px; margin:6px 0 12px; }
+.cls { flex:1; padding:10px 12px; border:1px solid rgba(255,255,255,.14); background:rgba(255,255,255,.04); cursor:pointer; transition:all .12s; }
+.cls:hover { background:rgba(255,255,255,.09); } .cls.sel { background:rgba(57,230,255,.14); border-color:var(--cc); box-shadow: inset 0 -3px 0 var(--cc); }
+.cls .ic { font-size:22px; color:var(--cc); } .cls h3 { font-size:14px; letter-spacing:3px; margin-top:2px; } .cls p { font-size:10px; color:var(--dim); letter-spacing:1px; margin-top:2px; }
+.sect { font-size:10px; letter-spacing:3px; color:var(--dim); margin:8px 0 4px; }
+.loadout { width:300px !important; }
+.chips { display:flex; gap:6px; } .chip { flex:1; padding:7px; font-size:11px; letter-spacing:1px; border:1px solid rgba(255,255,255,.15); cursor:pointer; text-align:center; background:rgba(255,255,255,.04); }
+.chip.sel { border-color:var(--c); background:rgba(57,230,255,.15); }
+.gbox { padding:8px 10px; border-left:3px solid var(--cc,#39e6ff); background:rgba(255,255,255,.05); font-size:12px; } .gbox b { letter-spacing:2px; } .gbox p { color:var(--dim); font-size:11px; margin-top:3px; line-height:1.4; }
+.wdetail { flex:1; min-width:250px; } .wdetail canvas { width:100%; height:150px; background:radial-gradient(ellipse at center,#1a2638,#070a10); border:1px solid rgba(255,255,255,.1); }
+.wdetail h3 { letter-spacing:3px; margin:8px 0 2px; } .wdetail p { font-size:12px; color:var(--dim); margin-bottom:6px; }
+.spec { display:grid; grid-template-columns:auto 1fr; gap:3px 12px; font-size:11px; letter-spacing:1px; margin-top:6px; } .spec span:nth-child(odd) { color:var(--dim); }
+#dmap { width:360px; height:360px; }
 #dmap { width:420px; height:420px; background:#0a0f16; border:1px solid rgba(255,255,255,.2); cursor:pointer; }
 .loadout { display:flex; flex-direction:column; gap:6px; width:330px; } .hint{margin-top:6px!important}
-.wcard { padding:7px 12px; border:1px solid rgba(255,255,255,.15); cursor:pointer; background:rgba(255,255,255,.04); }
+.wcard { padding:6px 10px; border:1px solid rgba(255,255,255,.15); cursor:pointer; background:rgba(255,255,255,.04); }
 .wcard.sel { border-color:var(--c); background:rgba(57,230,255,.15); }
 .wcard h4 { letter-spacing:3px; font-size:13px; } .wcard p { font-size:11px; color:var(--dim); margin-top:3px; }
 .stat { display:flex; align-items:center; gap:8px; font-size:9px; color:var(--dim); letter-spacing:1px; margin-top:2px; } .stat:nth-of-type(1){margin-top:5px} .stat i { flex:1; height:3px; background:rgba(255,255,255,.1); position:relative; } .stat i b { position:absolute; left:0; top:0; bottom:0; background:var(--c); }
@@ -113,7 +130,7 @@ select { font:inherit; background:#0d141d; color:#fff; border:1px solid #345; pa
   <div id="kf"></div><div id="evt" class="hidden"></div>
   <div id="xh"><i class="l"></i><i class="r"></i><i class="t"></i><i class="b"></i><i class="d"></i></div>
   <div id="hm"></div>
-  <div id="tunhint" class="hidden"></div>
+  <div id="tunhint" class="hidden"></div><div id="breath" class="hidden">SEGURANDO O FÔLEGO</div>
   <div id="msg"></div>
   <div id="vit">
     <div class="lab"><span>INTEGRIDADE</span><span id="hpv">100</span></div>
@@ -131,9 +148,11 @@ select { font:inherit; background:#0d141d; color:#fff; border:1px solid #345; pa
 <div id="menu" class="ov hidden">
   <div class="title">COLAPSO</div>
   <div class="sub">INSTITUTO KAPPA · NOITE DE TEMPESTADE</div>
+  <div id="menurank" class="sub" style="color:#ffd25a;margin-top:14px"></div>
   <div class="btns">
     <button class="pri" id="bPlay">▶ JOGAR · CONQUISTA 8v8</button>
     <button id="bHow">COMO JOGAR</button>
+    <button id="bDiff">DIFICULDADE: VETERANO</button>
     <button id="bOpt">CONFIGURAÇÕES</button>
     <button id="bQuit">SAIR</button>
   </div>
@@ -171,16 +190,19 @@ select { font:inherit; background:#0d141d; color:#fff; border:1px solid #345; pa
   <div class="btns"><button class="pri" id="bResume">CONTINUAR</button><button id="bPOpt">CONFIGURAÇÕES</button><button id="bPHow">COMO JOGAR</button><button id="bMenu">ABANDONAR PARTIDA</button></div>
 </div>
 
-<div id="deploy" class="ov hidden"><div class="panel" style="max-width:820px">
-  <h2 id="dtitle">IMPLANTAÇÃO</h2>
+<div id="deploy" class="ov hidden"><div class="panel dep">
+  <div class="dhead"><h2 id="dtitle">IMPLANTAÇÃO</h2><div id="rankbox"></div></div>
+  <div id="classes"></div>
   <div class="wrap">
-    <canvas id="dmap" width="420" height="420"></canvas>
+    <div class="dleft"><canvas id="dmap" width="360" height="360"></canvas><div class="hint" id="dhint">CLIQUE NO MAPA PARA ESCOLHER O SPAWN · 1-4 CLASSE · ESPAÇO IMPLANTA</div></div>
     <div class="loadout">
-      <div id="wlist"></div>
-      <div class="hint" id="dhint">CLIQUE NO MAPA PARA ESCOLHER ONDE NASCER · ESPAÇO IMPLANTA<br>Q TUNELAMENTO · E SUPERPOSIÇÃO · G GRANADA<br>CTRL CORRENDO = DESLIZAR · TAB PLACAR</div>
-      <button class="pri" id="bDeploy">▶ IMPLANTAR</button>
+      <div class="sect">ARMA PRIMÁRIA</div><div id="wlist"></div>
+      <div class="sect">SECUNDÁRIA</div><div id="slist" class="chips"></div>
+      <div class="sect">EQUIPAMENTO DA CLASSE</div><div id="gbox" class="gbox"></div>
     </div>
+    <div class="wdetail" id="wdetail"></div>
   </div>
+  <button class="pri" id="bDeploy" style="margin-top:12px;width:100%;text-align:center">▶ IMPLANTAR</button>
 </div></div>
 
 <div id="score" class="ov hidden" style="background:rgba(3,5,9,.7); pointer-events:none"><div class="panel">
@@ -190,6 +212,7 @@ select { font:inherit; background:#0d141d; color:#fff; border:1px solid #345; pa
 <div id="end" class="ov hidden">
   <div class="title" id="endT" style="font-size:72px">VITÓRIA</div>
   <div class="sub" id="endS"></div>
+  <div id="endX" class="lore" style="color:#e8f1ff"></div>
   <div class="btns"><button class="pri" id="bAgain">JOGAR DE NOVO</button><button id="bEndMenu">MENU</button></div>
 </div>
 <div id="fps" class="hidden"></div>
