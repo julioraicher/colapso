@@ -11,6 +11,9 @@ import { Nav, Bot, rayEntity } from './ai.js';
 import { scanTunnel, Echo, E_MAX } from './abilities.js';
 import { HUD, rankOf } from './hud.js';
 import { Glow } from './glow.js';
+import { Rules, FIRE_LABEL, BIPOD, fireModesOf } from './rules.js';
+import { CallIns } from './callins.js';
+import { Squads } from './squad.js';
 
 const $ = (id) => document.getElementById(id);
 const SETTINGS_KEY = 'colapso.settings.v1';
@@ -39,6 +42,7 @@ class Game {
     const lo = JSON.parse(localStorage.getItem('colapso.loadout') || '{}'); this.cls = lo.cls || 'assalto'; this.loadout = lo.loadout || 'k7'; this.secondary = lo.secondary || 'p9';
     this.time = 0; this.trauma = 0; this.fovPunch = 0;
     this.frameTimes = []; this.perf = { avg: 16, worst: 0 };
+    this.initGameplay();
     this.bindInput(); this.bindUI();
     window.addEventListener('resize', () => this.resize()); this.resize();
   }
@@ -83,6 +87,7 @@ class Game {
       chestPos() { return new THREE.Vector3(this.p.pos.x, this.p.pos.y + this.p.h * 0.72, this.p.pos.z); },
       hurt: (d, now, from) => this.playerHurt(d, from) };
     this.echo = new Echo(this);
+    this.rules.attach(); this.callins.warm(); this.squads.warm();
     this.hud.buildMinimap();
     await step(96, 'compilando shaders');
     this.renderer.compile(this.scene, this.camera); this.renderer.compile(this.vm.scene, this.vm.cam);
@@ -113,38 +118,21 @@ class Game {
     this.flags = FLAGS.map(f => ({ ...f, cap: 0, owner: -1, contested: false, n: [0, 0] }));
     this.tickets = [300, 300]; this.drainT = 0;
     this.event = { st: 'idle', t: 0 };
-    for (let i = 0; i < 7; i++) this.bots.push(new Bot(this, 0));
-    for (let i = 0; i < 8; i++) this.bots.push(new Bot(this, 1));
+    this.rules.start();   // mode setup: flags, score and timers of the selected mode
+    for (let i = 0; i < 7; i++) this.bots.push(new Bot(this, 0, i));
+    for (let i = 0; i < 8; i++) this.bots.push(new Bot(this, 1, i));
     this.entities = [this.pent, ...this.bots, this.echo];
     this.pent.kills = this.pent.deaths = this.pent.score = this.pent.caps = 0;
     for (const b of this.bots) { b.respawnT = 0.2 + Math.random() * 2; }
     this.player.alive = false;
     this.energy = E_MAX; this.nades = 2; for (const G0 of this.gadgets) this.scene.remove(G0.mesh); this.gadgets = []; this.bullets = [];
+    this.callins.reset(); this.squads.reset(); this.countdown = this.testMode ? 0 : 5; this.bipodTold = false; this.fireSel = {};
     this.hud.reset();
     this.audio.init();
     this.openDeploy(true);
   }
-  spawnPointFor(team, who) {
-    const opts = [BASES[team]];
-    for (const f of this.flags) if (f.owner === team && Math.abs(f.cap) >= 1 && !f.contested) opts.push(f);
-    let pick = who && who.isBot && opts.length > 1 && Math.random() < 0.7 ? opts[1 + (Math.random() * (opts.length - 1) | 0)] : opts[Math.random() * opts.length | 0];
-    if (who && who.chosenSpawn) pick = who.chosenSpawn;
-    for (let k = 0; k < 30; k++) {
-      const a = Math.random() * Math.PI * 2, r = 2 + Math.random() * (pick === BASES[team] ? 6 : 7);
-      const p = new THREE.Vector3(pick.x + Math.cos(a) * r, 0, pick.z + Math.sin(a) * r);
-      const h = this.nav.heightAt(p); if (h === null) continue;
-      p.y = h;
-      // avoid spawning in view of close enemies
-      let bad = false; for (const e of this.entities) if (e.alive && e.team !== team && e.pos.distanceTo(p) < 12) bad = true;
-      if (!bad) return p;
-    }
-    const b = BASES[team]; return new THREE.Vector3(b.x, G * VS, b.z);
-  }
-  spawnOptions() {
-    const o = [{ ...BASES[0], label: 'BASE' }];
-    for (const f of this.flags) if (f.owner === 0 && Math.abs(f.cap) >= 1 && !f.contested) o.push({ ...f, label: f.id });
-    return o;
-  }
+  spawnPointFor(team, who) { return this.rules.spawnPoint(team, who); }
+  spawnOptions() { return this.rules.spawnOptions(); }
   openDeploy(first) {
     this.state = 'deploy'; document.exitPointerLock && document.exitPointerLock();
     this.deploySel = this.spawnOptions()[0];
@@ -156,7 +144,7 @@ class Game {
     const s = this.deploySel || BASES[0];
     this.pent.chosenSpawn = s;
     const p = this.spawnPointFor(0, this.pent); this.pent.chosenSpawn = null;
-    this.player.spawn(p, s === BASES[0] || !s.id ? 0 : Math.atan2(-(96 * VS - p.x), -(96 * VS - p.z)));
+    this.player.spawn(p, s === BASES[0] || s.label === 'BASE' ? 0 : Math.atan2(-(96 * VS - p.x), -(96 * VS - p.z)));
     if (s.id) this.player.yaw = this.player.yaw; // face map centre from flags
     this.weapons = { primary: { id: this.loadout, ...this.ammoFor(this.loadout) }, secondary: { id: this.secondary, ...this.ammoFor(this.secondary) } };
     if (this.cls === 'suporte') { this.weapons.primary.reserve = Math.round(this.weapons.primary.reserve * 1.5); }
@@ -168,7 +156,7 @@ class Game {
     this.saveLoadout();
     this.state = 'play'; this.show(null);
     this.lock();
-    this.spawnProtect = 2;
+    this.spawnProtect = 2; this.burstLeft = 0; this.bipodT = 0; this.player.frozen = this.countdown > 0;
   }
   saveLoadout() { localStorage.setItem('colapso.loadout', JSON.stringify({ cls: this.cls, loadout: this.loadout, secondary: this.secondary })); }
   ammoFor(id) { const w = WEAPONS[id]; return { mag: w.mag, reserve: w.reserve }; }
@@ -178,6 +166,7 @@ class Game {
     if (!this.weapons[slot]) return;
     this.slot = slot; this.vm.setWeapon(this.W.id, this.WD); this.reloadT = 0; this.boltT = 0; this.fireCool = 0.3; this.audio.play('draw', null, 0.8, 1, 0);
     if (slot === 'gadget') this.vm.hasRocket = this.W.mag > 0;
+    this.burstLeft = 0; this.refreshFireMode();
   }
 
   // ---------------- input ----------------
@@ -192,6 +181,7 @@ class Game {
         if (this.state === 'deploy' && /^Digit[1-4]$/.test(e.code)) { this.setClass(Object.keys(CLASSES)[+e.code.slice(5) - 1]); }
         return;
       }
+      if (this.countdown > 0) return;   // pre-match countdown: look around only
       if (e.code === 'KeyR') this.startReload();
       if (e.code === 'KeyB') this.vm.inspect();
       if (e.code === 'KeyV') this.melee();
@@ -203,6 +193,8 @@ class Game {
       if (e.code === 'KeyP') this.toggleFps();
       if (e.code === 'KeyF' || e.code === 'Digit3') this.useGadget();
       if (e.code === 'KeyZ' || e.code === 'KeyT') this.spot();
+      if (e.code === 'KeyX') this.cycleFireMode();
+      if (e.code === 'Digit4' || e.code === 'Digit5' || e.code === 'Digit6') this.callins.use(+e.code.slice(5) - 4);
     });
     document.addEventListener('keyup', (e) => { this.keys[e.code] = false; if (e.code === 'Tab') this.hud.hideScore(); });
     document.addEventListener('mousedown', (e) => {
@@ -233,6 +225,8 @@ class Game {
   bindUI() {
     const back = () => this.show(this.state === 'pause' ? 'pause' : 'menu');
     $('bPlay').onclick = () => { this.audio.init(); this.startMatch(); };
+    for (const el of document.querySelectorAll('[data-mode]')) el.onclick = () => this.setMode(el.dataset.mode);
+    this.setMode(this.settings.mode || 'conquest');
     $('bHow').onclick = () => this.show('how'); $('bHowBack').onclick = back;
     const DIFFS = [['RECRUTA', 0.7], ['VETERANO', 1], ['ELITE', 1.3]];
     const setDiff = (i) => { i = DIFFS[i] ? i : 1; this.settings.diff = i; this.diffMul = DIFFS[i][1]; this.hud.setDiff(i); this.saveSettings(); };
@@ -256,27 +250,33 @@ class Game {
     if (this.reloadT > 0 || W.mag >= D.mag || W.reserve <= 0) return;
     if (this.boltT > 0) return;
     const t = D.reload * (D.style === 'mag' && W.mag === 0 ? 1.15 : 1); // empty reload is slower (chamber a round)
-    this.reloadT = t; this.reloadDur = t; this.ads = Math.min(this.ads, 0.3);
+    this.reloadT = t; this.reloadDur = t; this.ads = Math.min(this.ads, 0.3); this.burstLeft = 0;
     this.audio.reload(W.id, D, t);
   }
   playerFire() {
     const W = this.W, D = this.WD, p = this.player;
-    if (W.mag <= 0) { if (this.triggerReleased) { this.audio.play('empty', null, 0.6); this.triggerReleased = false; } this.startReload(); return; }
+    if (W.mag <= 0) { this.burstLeft = 0; if (this.triggerReleased) { this.audio.play('empty', null, 0.6); this.triggerReleased = false; } this.startReload(); return; }
     if (this.reloadT > 0) { if (D.style === 'shell' && W.mag > 0) this.reloadT = 0; else return; }
-    if (!D.auto && !this.triggerReleased) return;
+    // fire mode [X]: semi needs a fresh trigger pull for every round, burst fires three rounds per pull
+    const fm = this.fireModeId, inBurst = fm === 'burst' && this.burstLeft > 0;
+    if ((!D.auto || fm === 'semi' || (fm === 'burst' && !inBurst)) && !this.triggerReleased) return;
+    if (fm === 'burst' && !inBurst) this.burstLeft = 3;
     this.triggerReleased = false;
-    W.mag--; this.fireCool = 60 / D.rpm;
+    W.mag--; this.fireCool = 60 / D.rpm; this.rules.shot(D);
+    if (fm === 'burst' && --this.burstLeft <= 0) this.fireCool += 0.13;
+    const fmK = fm === 'semi' && D.auto ? 0.6 : fm === 'burst' ? 0.8 : 1;   // deliberate fire blooms and kicks less
     const eye = p.eye; const dir = new THREE.Vector3(); this.camera.getWorldDirection(dir);
     const moving = Math.hypot(p.vel.x, p.vel.z) > 1 || !p.onGround;
     const ads = this.ads;
     let spread = D.spreadHip * (1 - ads) + D.spreadAds * ads + (moving ? D.spreadMove : 0) + this.bloom;
     if (p.crouch) spread *= 0.75;
-    this.bloom = Math.min(0.03, this.bloom + (D.auto ? 0.0025 : 0.006) * (1 - ads * 0.6));
+    if (this.bipod) spread *= 0.6;
+    this.bloom = Math.min(0.03, this.bloom + (D.auto ? 0.0025 : 0.006) * (1 - ads * 0.6) * fmK * (this.bipod ? 0.5 : 1));
     const target = eye.clone().addScaledVector(dir, 100);
     const muzzle = this.muzzleWorld();
     this.fireBullet(this.pent, eye, target, D, spread, false, muzzle);
     // recoil: heavy & raw — vertical climb with partial recovery, horizontal jitter with bias
-    const rk = (1 - ads * 0.3) * (p.crouch ? 0.8 : 1);
+    const rk = (1 - ads * 0.3) * (p.crouch ? 0.8 : 1) * (this.bipod ? 0.35 : 1) * (0.7 + 0.3 * fmK);
     const v = D.recoilV * rk * (0.85 + Math.random() * 0.3);
     const h = D.recoilH * rk * ((Math.random() * 2 - 1) + D.recoilBias);
     this.recoilP += v; p.pitch += v; p.yaw -= h;
@@ -287,9 +287,8 @@ class Game {
     if (D.bolt && W.mag > 0) { this.boltT = D.bolt; this.boltDur = D.bolt; setTimeout(() => this.audio.play('bolt', null, 0.9, 1, 0), D.bolt * 300); }
     if (D.rocket) { this.vm.hasRocket = false; }
     if (D.type === 'shotgun') setTimeout(() => this.audio.play('pump', null, 0.9, 1, 0), 250);
-    // neighbours hear you: reveal on enemy minimap / alert bots nearby
+    // neighbours hear you: reveal on the enemy minimap (bots react to the noise through squads.noise in fireBullet)
     this.pent.spottedT = 2.5;
-    for (const b of this.bots) if (b.alive && b.team === 1 && b.pos.distanceTo(p.pos) < 40 && !b.target) { b.lastSeen = p.pos.clone(); b.lastSeenT = this.time; }
   }
   muzzleWorld() {
     const m = new THREE.Vector3(); this.vm.cur.userData.muzzle.getWorldPosition(m);
@@ -303,6 +302,7 @@ class Game {
     const muzzle = muzzleOverride || from;
     if (shooter !== this.pent && !isEcho) { this.audio.play(D.snd, muzzle, 1.0, 1, 0.3); this.fx.muzzle(muzzle); if (shooter.team === 1) shooter.spottedT = 2.5; }
     if (isEcho) this.audio.play(D.snd, muzzle, 0.8, 1.15, 0.3);
+    this.squads.noise(shooter, muzzle, shooter === this.pent ? 40 : 36);
     for (let k = 0; k < D.pellets; k++) {
       const d = base.clone();
       if (spread > 0) {
@@ -365,7 +365,7 @@ class Game {
       const vr = Math.min(1, b.v.length() / D.vel);
       const dmg = damageAt(D, dist) * (res.head ? D.head : 1) * (0.55 + 0.45 * vr * vr);
       this.fx.blood(end, d);
-      const wasAlive = hitE.alive;
+      const wasAlive = hitE.alive; this.hitD = D; if (shooter === this.pent) this.rules.hit();
       hitE.hurt(dmg, this.time, shooter, { head: res.head });
       if (hitE.isBot && !hitE.alive && wasAlive) { hitE.fallDir = 1; this.onKill(shooter, hitE, res.head, dist); }
       if (shooter === this.pent || shooter === this.echo) { this.hud.hit(!hitE.alive, res.head); this.audio.play(hitE.alive ? 'hit' : 'kill', null, 0.5, res.head ? 1.3 : 1, 0); }
@@ -374,7 +374,7 @@ class Game {
     } else if (res.wh) {
       const wh = res.wh; const n = new THREE.Vector3(wh.nx, wh.ny, wh.nz);
       this.fx.impact(end, n, wh.m);
-      const broke = this.world.damageVoxel(wh.x, wh.y, wh.z, D.vox);
+      this.hitBy = shooter; const broke = this.world.damageVoxel(wh.x, wh.y, wh.z, D.vox); this.hitBy = null;
       if (broke) { this.fx.debris(end.x, end.y, end.z, n.x * 2 + d.x, 2, n.z * 2 + d.z, broke, 0.5, 2.5); if (broke === MAT.GLASS) this.audio.play('glass_break', end, 0.6); if (broke === 25) this.barrelBoom(wh.x, wh.y, wh.z, shooter); }
       this.audio.impact(wh.m, end);
     }
@@ -405,10 +405,11 @@ class Game {
       if (this.phaseKillT && this.time - this.phaseKillT < 2) { tags.push('SAÍDA DO TÚNEL'); pts += 75; this.medal('tunel'); }
       if (this.streak === 5 || this.streak === 10) tags.push(`SEQUÊNCIA DE ${this.streak}`);
       if (head) this.medal('head');
+      pts += this.rules.playerKill(killer, victim, head, dist, tags);
       this.pent.score += pts; this.hud.toast(tags.join(' · '), pts);
     }
     else if (killer.kills !== undefined) killer.kills++;
-    if (victim.team !== undefined) this.tickets[victim.team] = Math.max(0, this.tickets[victim.team] - 1);
+    this.rules.death(victim, killer); this.squads.onDeath(victim, killer);
   }
   medal(k) { this.medals = this.medals || {}; this.medals[k] = (this.medals[k] || 0) + 1; }
   scavenge() {
@@ -429,12 +430,12 @@ class Game {
   }
   playerHurt(d, from) {
     const p = this.player; if (!p.alive || this.spawnProtect > 0 || p.phased) return;
-    p.hurt(d, this.time);
+    p.hurt(d, this.time); if (from && from.isBot) this.squads.onPlayerHurt(from);
     this.hud.damage(from ? (from.pos || from.p.pos) : null);
     this.trauma = Math.min(1, this.trauma + 0.25); this.audio.play('hurt', null, 0.6, 1, 0);
     if (!p.alive) {
-      this.pent.deaths++; this.tickets[0] = Math.max(0, this.tickets[0] - 1);
-      this.hud.feed(from ? (from.name || '???') : 'AMBIENTE', 'VOCÊ', from ? from.team : 1, false, false, true);
+      this.pent.deaths++; this.rules.death(this.pent, from); this.rules.playerDied(from); this.squads.onDeath(this.pent, from); this.ads = 0; this.burstLeft = 0;
+      this.hud.feed(from ? (from.name || '???') : (this.dmgCause || 'AMBIENTE'), 'VOCÊ', from ? from.team : 1, false, false, true);
       if (this.echo.alive) this.echo.kill(false);
       this.deathT = 3.5; this.killer = from; this.streak = 0;
       this.hud.toast(from && from.name ? `ABATIDO POR ${from.name}` : 'VOCÊ MORREU', 0, true);
@@ -472,8 +473,10 @@ class Game {
     }
   }
   explode(c, r, owner, power = 1, snd = 'explosion') {
-    owner = owner || this.pent;
+    owner = owner || this.pent; this.boomT = this.time;
     const res = this.world.explode(c, r, power);
+    if (owner === this.pent) this.rules.addVox(res.removed.length);
+    this.squads.noise(null, c, 42);
     for (const q of res.removed) if (q.m === 25) { this.barrelBoom(q.x, q.y, q.z, owner); }
     this.fx.explosion(c, r);
     this.audio.play(snd, c, 1.6, 1, 0.5);
@@ -487,7 +490,7 @@ class Game {
       this.fx.debris(px, py, pz, dx / L * s, dy / L * s + 4, dz / L * s, q.m, 0.5 + Math.random() * 0.5, 4);
     }
     // damage with LOS & falloff (impulse ~ 1/r²-ish clipped)
-    const R = 7;
+    const R = 7; this.dmgCause = this.rules.blastName(power);   // named for the death card and the kill attribution
     for (const e of this.entities) {
       if (!e.alive) continue;
       const ep = e.isPlayer ? e.chestPos() : e.chest; const d = ep.distanceTo(c);
@@ -500,6 +503,7 @@ class Game {
       if (e.isBot && was && !e.alive) { e.fallDir = 1; this.onKill(owner, e, false); }
       if (owner === this.pent && e !== this.pent) this.hud.hit(!e.alive, false);
     }
+    this.dmgCause = null;
     const pd = this.player.eye.distanceTo(c);
     if (pd < 6 && this.player.alive) { const k = (1 - pd / 6) * 9; const dir = this.player.eye.sub(c).normalize(); this.player.vel.addScaledVector(dir, k); this.player.vel.y += k * 0.4; }
     this.trauma = Math.min(1, this.trauma + Math.max(0, 1 - pd / 25));
@@ -594,7 +598,7 @@ class Game {
       if (!b.alive || b.team !== 1) continue; const to = b.chest.sub(eye); const d = to.length(); const a = Math.acos(Math.min(1, to.dot(dir) / d));
       if (a < ba && d < 120 && this.world.los(eye, b.chest)) { ba = a; best = b; }
     }
-    if (best) { best.markT = this.cls === 'recon' ? 14 : 8; best.spottedT = best.markT; this.audio.play('spot', null, 0.6, 1, 0); this.pent.score += 10; this.hud.toast('INIMIGO MARCADO', 10); }
+    if (best) { best.markT = this.cls === 'recon' ? 14 : 8; best.spottedT = best.markT; this.audio.play('spot', null, 0.6, 1, 0); this.pent.score += 10; this.hud.toast('INIMIGO MARCADO', 10); this.rules.mission('spot'); }
   }
   // ---------------- quantum abilities ----------------
   tunnel() {
@@ -656,16 +660,68 @@ class Game {
         const e = res.e, behind = -Math.sin(e.yaw || 0) * dir.x - Math.cos(e.yaw || 0) * dir.z > 0.35; // victim faces away from the blade
         const wasAlive = e.alive; this.fx.blood(res.point, dir);
         e.hurt(behind ? 250 : 60, this.time, this.pent, { head: false });
-        if (e.isBot && !e.alive && wasAlive) { e.fallDir = 1; this.onKill(this.pent, e, false, res.t); this.pent.score += 50; this.hud.toast('FACA', 50); }
+        if (e.isBot && !e.alive && wasAlive) { e.fallDir = 1; this.killHow = 'melee'; this.onKill(this.pent, e, false, res.t); this.killHow = null; this.pent.score += 50; this.hud.toast('FACA', 50); }
         this.hud.hit(!e.alive, false); this.audio.play('meleeHit', null, 0.9, 1, 0); this.audio.play(e.alive ? 'hit' : 'kill', null, 0.5, 1, 0);
         if (!e.alive) { this.audio.play('death', res.point, 0.9); this.audio.play('bodyfall', res.point, 0.5); }
       } else if (res.wh) {
         const wh = res.wh, n = new THREE.Vector3(wh.nx, wh.ny, wh.nz), q = res.point;
         this.fx.impact(q, n, wh.m); this.audio.impact(wh.m, q);
-        const broke = this.world.damageVoxel(wh.x, wh.y, wh.z, 2);
+        this.hitBy = this.pent; const broke = this.world.damageVoxel(wh.x, wh.y, wh.z, 2); this.hitBy = null;
         if (broke) { this.fx.debris(q.x, q.y, q.z, n.x * 2, 2, n.z * 2, broke, 0.5, 2.5); if (broke === MAT.GLASS) this.audio.play('glass_break', q, 0.6); if (broke === 25) this.barrelBoom(wh.x, wh.y, wh.z, this.pent); }
       }
     }, 170);
+  }
+
+  // ---------------- gameplay systems: modes, call-ins, squads, weapon handling ----------------
+  // (the systems live in rules.js / callins.js / squad.js; these are the thin hooks the rest of the game calls)
+  initGameplay() {
+    this.rules = new Rules(this); this.callins = new CallIns(this); this.squads = new Squads(this);
+    this.fireSel = {}; this.fireModeId = 'auto'; this.fireMode = 'AUTO'; this.burstLeft = 0; this.bipod = false; this.bipodT = 0; this.bipodTold = false; this.countdown = 0;
+  }
+  setMode(id) { return this.rules.setMode(id); }
+  cycleMode() { return this.rules.cycle(); }
+  // Fire mode [X]: the list per weapon is in rules.js; the choice is remembered per weapon until the match ends.
+  cycleFireMode() {
+    if (this.state !== 'play' || !this.weapons || !this.player.alive) return;
+    const id = this.W.id, list = fireModesOf(id);
+    if (list.length < 2) { this.hud.toast('ESTA ARMA TEM UM ÚNICO MODO DE TIRO', 0, true); this.audio.play('empty', null, 0.4); return; }
+    this.fireSel[id] = ((this.fireSel[id] || 0) + 1) % list.length; this.burstLeft = 0;
+    this.refreshFireMode(); this.audio.play('firemode', null, 0.7, 1, 0); this.hud.toast('MODO DE TIRO · ' + FIRE_LABEL[this.fireModeId], 0);
+  }
+  refreshFireMode() {
+    if (!this.weapons) return;
+    const id = this.W.id, list = fireModesOf(id);
+    this.fireModeId = list[(this.fireSel[id] || 0) % list.length];
+    this.fireMode = FIRE_LABEL[this.fireModeId] + (this.bipod ? ' · BIPÉ' : '');
+  }
+  // Bipod (LMGs and bolt rifles): crouched and still for a moment → recoil, bloom and scope sway drop sharply.
+  updateHandling(dt) {
+    const p = this.player;
+    const rest = BIPOD[this.W.id] && p.crouch && p.onGround && !p.vault && p.slideT <= 0 && Math.hypot(p.vel.x, p.vel.z) < 0.5;
+    this.bipodT = rest ? this.bipodT + dt : 0;
+    const on = this.bipodT > 0.35;
+    if (on !== this.bipod) {
+      this.bipod = on; this.refreshFireMode();
+      if (on) { this.audio.play('tick', null, 0.5, 0.7, 0); if (!this.bipodTold) { this.bipodTold = true; this.hud.toast('BIPÉ APOIADO · RECUO E BALANÇO REDUZIDOS', 0); } }
+    }
+  }
+  // After the player controller moved: vault and landing feedback, fall damage.
+  postMove() {
+    const p = this.player;
+    if (p.evVault) { p.evVault = 0; this.audio.play('vault', null, 0.7, 1, 0); this.rules.stat('vaults'); this.rules.mission('vault'); this.fireCool = Math.max(this.fireCool, 0.25); this.ads = Math.min(this.ads, 0.2); this.burstLeft = 0; }
+    if (p.evLand) { if (p.evLand > 9) this.audio.play('land', null, Math.min(1, p.evLand / 18), 1, 0); p.evLand = 0; }
+    if (p.fallDmg > 0) {
+      const d = p.fallDmg; p.fallDmg = 0; if (this.spawnProtect > 0 || this.phase) return;
+      this.dmgCause = 'QUEDA'; this.playerHurt(d, null); this.dmgCause = null;
+      if (p.alive) this.hud.toast('QUEDA · −' + Math.round(d) + ' DE INTEGRIDADE', 0, true);
+    }
+  }
+  // Pre-match countdown: everybody stands ready (the player can look around) and spawn protection stays on.
+  updateCountdown(dt) {
+    const c0 = Math.ceil(this.countdown); this.countdown -= dt;
+    this.spawnProtect = Math.max(this.spawnProtect, 2); this.fireCool = Math.max(this.fireCool, 0.25);
+    if (this.countdown <= 0) { this.countdown = 0; this.player.frozen = false; this.audio.play('countdown', null, 0.8, 1.5, 0); this.hud.toast('VALENDO!', 0); }
+    else if (Math.ceil(this.countdown) !== c0) this.audio.play('countdown', null, 0.6, 1, 0);
   }
 
   // ---------------- conquest ----------------
@@ -731,7 +787,7 @@ class Game {
   inFlag(f) { const p = this.player.pos; return this.player.alive && Math.hypot(p.x - f.x, p.z - f.z) < 7.5; }
   updateMenuRank() { const xp = +(localStorage.getItem('colapso.xp') || 0); const R = rankOf(xp); $('menurank').textContent = `${R.name} · ${xp.toLocaleString('pt-BR')} XP`; }
   endMatch(win) {
-    this.state = 'end'; document.exitPointerLock && document.exitPointerLock();
+    this.state = 'end'; document.exitPointerLock && document.exitPointerLock(); this.rules.finish(win);
     $('endT').textContent = win ? 'VITÓRIA' : 'DERROTA';
     $('endS').textContent = `ABATES ${this.pent.kills} · MORTES ${this.pent.deaths} · CAPTURAS ${this.pent.caps} · PONTOS ${this.pent.score}`;
     const before = +(localStorage.getItem('colapso.xp') || 0); const gain = this.pent.score + (win ? 1000 : 300);
@@ -777,6 +833,7 @@ class Game {
   update(dt) {
     this.time += dt; const now = this.time; const p = this.player;
     if (this.spawnProtect > 0) this.spawnProtect -= dt;
+    if (this.countdown > 0 && this.state === 'play') this.updateCountdown(dt);
     this.suppress = Math.max(0, (this.suppress || 0) - dt * 0.6);
     // --- player ---
     if (this.state === 'play' && p.alive) {
@@ -789,13 +846,14 @@ class Game {
       const inp = { f: K.KeyW, b: K.KeyS, l: K.KeyA, r: K.KeyD, sprint: K.ShiftLeft || K.ShiftRight, crouch: K.ControlLeft || K.KeyC, jump: K.Space };
       if (this.botPilot) Object.assign(inp, this.botPilot(this));
       if (!this.phase) p.update(dt, inp, now, (v) => this.audio.play('step', null, 0.25 * v, 0.9 + Math.random() * 0.2, 0));
+      this.postMove(); this.updateHandling(dt);
       this.updatePhase(dt);
       // sniper scope sway (Lissajous, ∝ breathing); SHIFT while scoped holds breath for 4 s
       const D0 = this.WD;
       if (D0.sight === 'scope' && this.ads > 0.8) {
         const hold = (K.ShiftLeft || K.ShiftRight) && this.breath > 0;
         if (hold) this.breath -= dt; else this.breath = Math.min(4, this.breath + dt * 0.8);
-        const amp = (hold ? 0.0006 : 0.0045) * (p.crouch ? 0.6 : 1) * (D0.zoom >= 8 ? 1.2 : 1) * (this.breath <= 0 ? 2 : 1);
+        const amp = (hold ? 0.0006 : 0.0045) * (p.crouch ? 0.6 : 1) * (D0.zoom >= 8 ? 1.2 : 1) * (this.breath <= 0 ? 2 : 1) * (this.bipod ? 0.25 : 1);
         const sx = Math.sin(now * 0.9) * amp, sy = Math.sin(now * 1.7 + 0.5) * amp * 0.7;
         p.yaw += sx - (this.swayPrev ? this.swayPrev[0] : 0); p.pitch += sy - (this.swayPrev ? this.swayPrev[1] : 0); this.swayPrev = [sx, sy];
         this.hud.breath(true, hold, this.breath);
@@ -808,7 +866,7 @@ class Game {
       this.bloom = Math.max(0, this.bloom - dt * 0.06);
       // firing
       this.fireCool -= dt;
-      if (this.mouse.l && this.fireCool <= 0 && !p.sprint && !this.phase && !(this.boltT > 0)) this.playerFire();
+      if ((this.mouse.l || this.burstLeft > 0) && this.fireCool <= 0 && !p.sprint && !this.phase && !(this.boltT > 0)) this.playerFire();
       if (p.sprint && this.reloadT > 0 && false) this.reloadT = 0;
       if (this.reloadT > 0) {
         this.reloadT -= dt;
@@ -835,7 +893,8 @@ class Game {
     this.updateGrenades(dt);
     this.updateBullets(dt);
     this.updateGadgets(dt);
-    if (this.state === 'play') { this.updateFlags(dt); this.updateEvent(dt); }
+    if (this.state === 'play' && !(this.countdown > 0)) this.rules.update(dt);   // objectives, score and timers of the current mode
+    this.callins.update(dt); this.squads.update(dt);
     this.fx.update(dt);
     this.updateWeather(dt);
     // --- camera ---
@@ -858,12 +917,20 @@ class Game {
     if (this.weapons) this.vm.update(dt, { mdx: 0, mdy: 0, sprint: p.sprint && Math.hypot(p.vel.x, p.vel.z) > 3, ads: this.ads, slide: p.slideT > 0, reloadT: this.reloadT, reloadDur: this.reloadDur || 1, style: this.WD.style, boltT: this.boltT, boltDur: this.boltDur || 1, bob: p.bob, moveK: Math.min(1, Math.hypot(p.vel.x, p.vel.z) / 5) * (p.onGround ? 1 : 0.2), land: p.landKick, fov: 60 - this.ads * 10 });
     this.hud.update(dt);
   }
+  // Kill-cam-lite: the camera rises behind the body and keeps the killer framed (slowly zooming in) until the respawn.
   deathCam(dt) {
-    const p = this.player; const k = this.killer && this.killer.pos;
-    const e = new THREE.Vector3(p.pos.x, p.pos.y + 2.5, p.pos.z);
-    this.camera.position.copy(e);
-    if (k) this.camera.lookAt(k.x, k.y + 1.3, k.z);
-    return e.clone().add(new THREE.Vector3(0, (3 - (this.deathT || 0)) * 0.3, 0));
+    const p = this.player, K = this.killer, k = K && K !== this.pent && K.pos;
+    const e = this.dcPos || (this.dcPos = new THREE.Vector3());
+    const t = 1 - Math.max(0, Math.min(3.5, this.deathT || 0)) / 3.5;
+    e.set(p.pos.x, p.pos.y + 2.2 + t * 0.9, p.pos.z);
+    if (k) {
+      let ax = p.pos.x - k.x, az = p.pos.z - k.z; const al = Math.hypot(ax, az) || 1; ax /= al; az /= al;
+      const back = 1 + t * 1.8, bx = e.x + ax * back, bz = e.z + az * back;
+      if (!this.world.boxHits(bx - 0.25, e.y - 0.25, bz - 0.25, bx + 0.25, e.y + 0.25, bz + 0.25)) { e.x = bx; e.z = bz; }   // stay out of walls
+      this.camera.position.copy(e); this.camera.lookAt(k.x, k.y + 1.3, k.z);
+      this.fovPunch = -Math.min(22, t * 30);
+    }
+    return e;
   }
   render() {
     const r = this.renderer;

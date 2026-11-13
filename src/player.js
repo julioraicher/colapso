@@ -1,9 +1,11 @@
 // First-person kinematic controller: axis-separated AABB vs voxel grid, auto step-up,
-// sprint / crouch / slide, coyote time + jump buffering, headbob phase for the viewmodel.
+// sprint / crouch / slide, coyote time + jump buffering, headbob phase for the viewmodel,
+// vault / mantle over obstacles up to 1.5 m (ledge grab up to 2 m while airborne), fall damage.
 import * as THREE from 'three';
 import { VS } from './world.js';
 
 const R = 0.32, H_STAND = 1.75, H_CROUCH = 1.15, EYE_OFF = 0.12;
+const FROZEN = { f: false, b: false, l: false, r: false, sprint: false, crouch: false, jump: false };
 export class Player {
   constructor(world) {
     this.w = world;
@@ -13,12 +15,53 @@ export class Player {
     this.bob = 0; this.stepAcc = 0; this.landKick = 0;
     this.hp = 100; this.lastHurt = -99; this.alive = true; this.team = 0;
     this.speedMul = 1; this.ads = 0;
+    this.regenDelay = 6; this.regenRate = 15;      // every class regenerates after a quiet spell
+    this.vault = null; this.vaultK = 0; this.vaults = 0; this.groundY = 0; this.fallDmg = 0; this.evVault = 0; this.evLand = 0; this.frozen = false;
   }
-  get eye() { return new THREE.Vector3(this.pos.x, this.pos.y + this.h - EYE_OFF, this.pos.z); }
-  spawn(p, yaw) { this.pos.copy(p); this.vel.set(0, 0, 0); this.yaw = yaw; this.pitch = 0; this.hp = 100; this.alive = true; this.h = H_STAND; }
+  // the eye dips during a vault (hands on the ledge, knees tucked)
+  get eye() { return new THREE.Vector3(this.pos.x, this.pos.y + this.h - EYE_OFF - Math.sin(this.vaultK * Math.PI) * 0.24, this.pos.z); }
+  spawn(p, yaw) { this.pos.copy(p); this.vel.set(0, 0, 0); this.yaw = yaw; this.pitch = 0; this.hp = 100; this.alive = true; this.h = H_STAND; this.vault = null; this.vaultK = 0; this.groundY = p.y; this.fallDmg = 0; this.crouch = false; this.slideT = 0; }
   collides(px, py, pz, h) { return this.w.boxHits(px - R, py, pz - R, px + R, py + h, pz + R); }
 
+  // Obstacle straight ahead that can be climbed: returns the landing spot {x, y, z, h} or null.
+  // maxUp: highest ledge above the feet; topLimit: absolute cap for the ledge top (airborne grabs).
+  findLedge(maxUp, topLimit) {
+    const p = this.pos, fx = -Math.sin(this.yaw), fz = -Math.cos(this.yaw);
+    // first distance at which the body (above auto-step height) is blocked
+    let d0 = -1;
+    for (let d = 0.1; d <= 0.75; d += 0.1) if (this.collides(p.x + fx * d, p.y + 0.55, p.z + fz * d, this.h - 0.55)) { d0 = d; break; }
+    if (d0 < 0) return null;
+    const lx = p.x + fx * (d0 + 0.5), lz = p.z + fz * (d0 + 0.5);
+    for (let k = Math.ceil((p.y + 0.6) / VS - 1e-4); k * VS <= p.y + maxUp + 0.02 && k * VS <= topLimit + 0.02; k++) {
+      const ty = k * VS;
+      if (this.collides(lx, ty + 0.02, lz, H_CROUCH)) continue;                 // no room on top at this level
+      if (!this.collides(lx, ty - 0.2, lz, 0.18)) continue;                      // nothing to stand on (open air)
+      if (this.collides(p.x, p.y + 0.05, p.z, ty - p.y + this.h)) return null;   // no headroom to rise
+      return { x: lx, y: ty + 0.01, z: lz, h: ty - p.y };
+    }
+    return null;
+  }
+  startVault(L) {
+    this.vault = { fx: this.pos.x, fy: this.pos.y, fz: this.pos.z, tx: L.x, ty: L.y, tz: L.z, t: 0, dur: 0.3 + Math.max(0, L.h - 1) * 0.16 };
+    this.vel.set(0, 0, 0); this.jumpBuf = 0; this.coyote = 0; this.slideT = 0; this.evVault = L.h; this.vaults++;
+    if (this.collides(L.x, L.y, L.z, H_STAND)) this.crouch = true;              // low ceiling up there: arrive crouched
+  }
+  // Scripted motion: rise first, then slide forward over the edge. No collision while it runs (the path was checked).
+  updateVault(dt) {
+    const v = this.vault; v.t += dt; const k = Math.min(1, v.t / v.dur);
+    const up = Math.min(1, k / 0.7), ky = 1 - (1 - up) * (1 - up), q = Math.max(0, (k - 0.3) / 0.7), kx = q * q * (3 - 2 * q);
+    this.pos.set(v.fx + (v.tx - v.fx) * kx, v.fy + (v.ty - v.fy) * ky, v.fz + (v.tz - v.fz) * kx);
+    this.vaultK = k; this.sprint = true; this.onGround = false;
+    const th = this.crouch ? H_CROUCH : H_STAND; this.h += (th - this.h) * Math.min(1, dt * 14);
+    if (k >= 1) {
+      this.vault = null; this.vaultK = 0; this.sprint = false; this.onGround = true; this.coyote = 0.1; this.groundY = this.pos.y;
+      const sp = 3.6; this.vel.set(-Math.sin(this.yaw) * sp, 0, -Math.cos(this.yaw) * sp);
+    }
+  }
+
   update(dt, inp, now, onStep) {
+    if (this.vault) { this.updateVault(dt); return; }
+    if (this.frozen) inp = FROZEN;                 // pre-match countdown: look around, no movement
     // --- orientation handled by caller (mouse); here: movement ---
     const wantCrouch = inp.crouch;
     const fwd = (inp.f ? 1 : 0) - (inp.b ? 1 : 0), str = (inp.r ? 1 : 0) - (inp.l ? 1 : 0);
@@ -57,6 +100,13 @@ export class Player {
     // gravity & jump (coyote + buffer)
     this.coyote = this.onGround ? 0.1 : this.coyote - dt;
     this.jumpBuf = inp.jump ? 0.12 : this.jumpBuf - dt;
+    if (this.onGround) this.groundY = this.pos.y;
+    // vault / mantle: jump while moving forward into an obstacle 1 to 1.5 m high (auto step-up covers 0.5 m);
+    // airborne, a ledge up to 2 m above the take-off ground can still be grabbed.
+    if (this.jumpBuf > 0 && fwd > 0) {
+      const L = this.coyote > 0 ? this.findLedge(1.5, this.pos.y + 1.5) : this.vel.y < 4 ? this.findLedge(1.5, this.groundY + 2) : null;
+      if (L && L.h >= (this.coyote > 0 ? 0.95 : 0.35)) { this.startVault(L); return; }
+    }
     if (this.jumpBuf > 0 && this.coyote > 0) { this.vel.y = 6.4; this.jumpBuf = 0; this.coyote = 0; this.slideT = 0; }
     this.vel.y -= 19 * dt;
     if (this.vel.y < -40) this.vel.y = -40;
@@ -66,7 +116,10 @@ export class Player {
     const sdt = dt / n; const wasGround = this.onGround; let vyBefore = this.vel.y;
     this.onGround = false;
     for (let i = 0; i < n; i++) this.move(sdt);
-    if (this.onGround && !wasGround && vyBefore < -6) { this.landKick = Math.min(1, -vyBefore / 16); onStep && onStep(1.4); }
+    if (this.onGround && !wasGround && vyBefore < -6) {
+      this.landKick = Math.min(1, -vyBefore / 16); onStep && onStep(1.4); this.evLand = -vyBefore;
+      if (vyBefore < -13) this.fallDmg = Math.min(70, (-vyBefore - 13) * 5);     // mild: a 6 m drop costs ~10, 10 m ~30
+    }
     if (!this.onGround && this.pos.y < -10) { this.hp = 0; }
 
     // head bob / footsteps
@@ -79,7 +132,7 @@ export class Player {
     }
     this.landKick *= Math.exp(-dt * 8);
     // health regen
-    if (now - this.lastHurt > 5 && this.hp < 100 && this.alive) this.hp = Math.min(100, this.hp + 22 * dt);
+    if (now - this.lastHurt > this.regenDelay && this.hp < 100 && this.alive) this.hp = Math.min(100, this.hp + this.regenRate * dt);
   }
   move(dt) {
     const p = this.pos, v = this.vel, h = this.h;

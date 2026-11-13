@@ -102,7 +102,7 @@ function keyActions(g) {
   if (o.fireMode) A.KeyX = ['MODO', 'cb'];
   if (o.melee) A.KeyV = ['FACA', 'cb'];
   if (o.inspect) A.KeyB = ['INSPEÇÃO', 'cb'];
-  if (o.streaks) { A.Digit4 = ['REFORÇO', 'cb']; A.Digit5 = ['REFORÇO', 'cb']; A.Digit6 = ['REFORÇO', 'cb']; }
+  if (o.streaks) { A.Digit4 = ['UAV', 'cb']; A.Digit5 = ['ARTILH.', 'cb']; A.Digit6 = ['CÁPSULA', 'cb']; }
   return A;
 }
 export function keyboardHTML(g) {
@@ -140,7 +140,7 @@ export function cheatHTML(g) {
     row(kc('W') + kc('A') + kc('S') + kc('D'), 'Mover'),
     row(kc('SHIFT'), 'Correr'),
     row(kc('CTRL') + '<u>ou</u>' + kc('C'), 'Agachar · correndo: deslizar'),
-    row(kc('ESPAÇO'), 'Pular'),
+    row(kc('ESPAÇO'), 'Pular · contra um obstáculo: escalar'),
   ]) + grp('cb', 'COMBATE', [
     row(kc('M1'), 'Atirar'),
     row(kc('M2'), 'Mirar · com luneta ' + kc('SHIFT') + ' segura o fôlego'),
@@ -148,10 +148,10 @@ export function cheatHTML(g) {
     row(kc('1') + kc('2') + '<u>ou</u>' + kc('MW'), 'Trocar de arma'),
     row(kc('G'), 'Granada (derruba paredes)'),
     row(kc('F') + '<u>ou</u>' + kc('3'), 'Equipamento da classe'),
-    ...(o.fireMode ? [row(kc('X'), 'Modo de tiro')] : []),
+    ...(o.fireMode ? [row(kc('X'), 'Modo de tiro (auto · rajada · semi)')] : []),
     ...(o.melee ? [row(kc('V'), 'Ataque corpo a corpo')] : []),
     ...(o.inspect ? [row(kc('B'), 'Inspecionar a arma')] : []),
-    ...(o.streaks ? [row(kc('4') + kc('5') + kc('6'), 'Chamar reforços')] : []),
+    ...(o.streaks ? [row(kc('4') + kc('5') + kc('6'), 'Reforços: UAV · artilharia · cápsula')] : []),
   ]) + grp('qt', 'HABILIDADES QUÂNTICAS', [
     row(kc('Q'), 'Tunelamento: atravessa a parede à frente'),
     row(kc('E'), 'Superposição: cria um eco'),
