@@ -104,6 +104,16 @@ export class Viewmodel {
     const d = new THREE.DirectionalLight(0xbcd0ff, 1.2); d.position.set(0.5, 1, 0.3); this.scene.add(d);
     this.flash = new THREE.PointLight(0xffb060, 0, 3, 1.5); this.flash.position.set(0.1, -0.05, -0.8); this.scene.add(this.flash);
     this.root = new THREE.Group(); this.scene.add(this.root);
+    // muzzle flash: two crossed additive quads + a disc facing camera (radial gradient texture)
+    const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d');
+    const gr = x.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,250,220,1)'); gr.addColorStop(0.3, 'rgba(255,190,90,.9)'); gr.addColorStop(1, 'rgba(255,120,30,0)');
+    x.fillStyle = gr; x.fillRect(0, 0, 64, 64);
+    const fm = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false, side: THREE.DoubleSide });
+    this.mflash = new THREE.Group();
+    const q1 = new THREE.Mesh(new THREE.PlaneGeometry(0.09, 0.3), fm); q1.rotation.x = Math.PI / 2; q1.position.z = -0.12; this.mflash.add(q1);
+    const q2 = q1.clone(); q2.rotation.y = Math.PI / 2; this.mflash.add(q2);
+    const disc = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.22), fm); this.mflash.add(disc); this.mflash.traverse(o => o.renderOrder = 10);
+    this.mflash.visible = false;
     this.guns = {};
     this.arms = new THREE.Group();
     const sleeve = lam(0x2c3440), glove = lam(0x1a1c20), band = lam(0x39e6ff, 1);
@@ -126,17 +136,17 @@ export class Viewmodel {
   setWeapon(id, def) {
     if (this.cur) this.root.remove(this.cur);
     if (!this.guns[id]) this.guns[id] = buildGun(def.type);
-    this.cur = this.guns[id]; this.root.add(this.cur); this.type = def.type; this.switchT = 0.35;
+    this.cur = this.guns[id]; this.root.add(this.cur); this.cur.userData.muzzle.add(this.mflash); this.type = def.type; this.switchT = 0.35;
   }
   get muzzleWorld() { return this.cur.userData.muzzle; }
-  fire(k) { this.kickV += 0.9 * k; this.rotV += 7 * k; this.roll = (Math.random() - 0.5) * 0.06 * k; this.flash.intensity = 4; this.flashT = 0.05; }
+  fire(k) { this.kickV += 0.9 * k; this.rotV += 7 * k; this.roll = (Math.random() - 0.5) * 0.06 * k; this.flash.intensity = 4; this.flashT = 0.05; this.mflash.visible = true; this.mflash.rotation.z = Math.random() * 6.28; this.mflash.scale.setScalar(0.8 + Math.random() * 0.5); }
   update(dt, s) {
     // critically damped-ish springs for recoil (x'' = -k x - c x')
     const K = 220, C = 22;
     this.kickV += (-K * this.kick - C * this.kickV) * dt; this.kick += this.kickV * dt;
     this.rotV += (-K * this.rot - C * this.rotV) * dt; this.rot += this.rotV * dt;
     this.roll *= Math.exp(-dt * 10);
-    if (this.flashT > 0) { this.flashT -= dt; if (this.flashT <= 0) this.flash.intensity = 0; }
+    if (this.flashT > 0) { this.flashT -= dt; if (this.flashT <= 0) { this.flash.intensity = 0; this.mflash.visible = false; } }
     this.swayX += (-s.mdx * 0.0009 - this.swayX) * Math.min(1, dt * 8);
     this.swayY += (s.mdy * 0.0009 - this.swayY) * Math.min(1, dt * 8);
     this.swayX = THREE.MathUtils.clamp(this.swayX, -0.05, 0.05); this.swayY = THREE.MathUtils.clamp(this.swayY, -0.05, 0.05);

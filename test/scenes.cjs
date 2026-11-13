@@ -18,7 +18,8 @@ const path = require('path');
       if (s.bot) { const b = g.bots.find(b => b.team === s.bot.team && !b.alive) || g.bots[0]; b.spawnAt(new p.pos.constructor(s.bot.x, s.bot.y, s.bot.z)); b.respawnT = 999; b.yaw = s.bot.yaw || 0; b.think = () => {}; }
       if (s.nade) { g.explode(new p.pos.constructor(s.nade.x, s.nade.y, s.nade.z), s.nade.r || 2.8, g.pent); }
       if (s.echo) { g.energy = 100; g.superpose(); }
-      for (let i = 0; i < (s.frames || 30); i++) { g.update(1/30); g.world.update(20); }
+      if (s.fire) { g.vm.fire(1); g.vm.flashT = 99; }
+      for (let i = 0; i < (s.frames ?? 30); i++) { g.update(1/30); g.world.update(20); }
       g.render(); return { calls: g.renderer.info.render.calls, tris: g.renderer.info.render.triangles, pos: p.pos.toArray().map(v=>+v.toFixed(1)) };
     }, s);
     console.log(s.name, JSON.stringify(info));

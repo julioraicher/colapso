@@ -130,7 +130,7 @@ export class Bot {
   }
   hurt(d, now, from) {
     if (!this.alive) return;
-    this.hp -= d; this.suppress = Math.min(1, this.suppress + 0.4);
+    this.hp -= d; this.suppress = Math.min(1, this.suppress + 0.4); this.flinch = 1;
     if (from && from.alive && (!this.target || !this.target.alive || Math.random() < 0.5)) { this.lastSeen = from.pos.clone(); this.lastSeenT = now; this.alertBy = from; }
     if (this.hp <= 0) { this.hp = 0; this.alive = false; this.deadT = 0; this.respawnT = 7; this.deaths++; }
   }
@@ -209,8 +209,8 @@ export class Bot {
     U.hips.position.y = (this.crouch ? 0.6 : 0.9) + Math.abs(Math.cos(this.walk)) * 0.04 * Math.min(1, spd / 3);
     if (this.crouch) { U.legs[0].leg.rotation.x = -1.2; U.legs[0].shin.rotation.x = 1.9; U.legs[1].leg.rotation.x = -0.3; U.legs[1].shin.rotation.x = 1.5; }
     let pitch = 0; if (T && this.seeT > 0) { const tp = T.isPlayer ? T.chestPos() : T.chest; pitch = Math.atan2(tp.y - this.eye.y, Math.hypot(tp.x - this.pos.x, tp.z - this.pos.z)); }
-    U.arms.rotation.x = pitch; U.head.rotation.x = pitch * 0.6;
-    U.torso.rotation.y = 0;
+    this.flinch = Math.max(0, (this.flinch || 0) - dt * 6);
+    U.arms.rotation.x = pitch + this.flinch * 0.35; U.head.rotation.x = pitch * 0.6 - this.flinch * 0.3; U.torso.rotation.x = -this.flinch * 0.15;
     m.position.copy(this.pos); m.rotation.set(0, this.yaw, 0);
     // recoil twitch
     U.gun.position.z = -0.38 + Math.max(0, this.cool - 60 / this.wdef.rpm * 0.5) * 0.0;

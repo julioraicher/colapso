@@ -74,7 +74,7 @@ canvas#gl { position:fixed; inset:0; width:100%; height:100%; display:block; }
 button { font:inherit; font-size:16px; letter-spacing:4px; color:var(--t); background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.18); padding:13px 18px; text-align:left; cursor:pointer; transition:all .12s; }
 button:hover { background:rgba(57,230,255,.18); border-color:var(--c); padding-left:26px; }
 button.pri { background:rgba(57,230,255,.2); border-color:var(--c); }
-.panel { background:rgba(8,12,18,.85); border:1px solid rgba(255,255,255,.12); padding:26px 32px; max-width:860px; width:92%; }
+.panel { max-height:96vh; overflow:auto; background:rgba(8,12,18,.85); border:1px solid rgba(255,255,255,.12); padding:26px 32px; max-width:860px; width:92%; }
 .panel h2 { letter-spacing:6px; font-size:20px; margin-bottom:16px; color:var(--c); }
 .grid2 { display:grid; grid-template-columns:auto 1fr; gap:8px 26px; font-size:14px; }
 .grid2 b { color:var(--c); letter-spacing:2px; }
@@ -83,11 +83,11 @@ button.pri { background:rgba(57,230,255,.2); border-color:var(--c); }
 select { font:inherit; background:#0d141d; color:#fff; border:1px solid #345; padding:6px; }
 #deploy .wrap { display:flex; gap:26px; align-items:flex-start; }
 #dmap { width:420px; height:420px; background:#0a0f16; border:1px solid rgba(255,255,255,.2); cursor:pointer; }
-.loadout { display:flex; flex-direction:column; gap:8px; width:330px; }
-.wcard { padding:10px 14px; border:1px solid rgba(255,255,255,.15); cursor:pointer; background:rgba(255,255,255,.04); }
+.loadout { display:flex; flex-direction:column; gap:6px; width:330px; } .hint{margin-top:6px!important}
+.wcard { padding:7px 12px; border:1px solid rgba(255,255,255,.15); cursor:pointer; background:rgba(255,255,255,.04); }
 .wcard.sel { border-color:var(--c); background:rgba(57,230,255,.15); }
-.wcard h4 { letter-spacing:3px; font-size:14px; } .wcard p { font-size:12px; color:var(--dim); margin-top:3px; }
-.stat { display:flex; align-items:center; gap:8px; font-size:10px; color:var(--dim); letter-spacing:1px; margin-top:4px; } .stat i { flex:1; height:3px; background:rgba(255,255,255,.1); position:relative; } .stat i b { position:absolute; left:0; top:0; bottom:0; background:var(--c); }
+.wcard h4 { letter-spacing:3px; font-size:13px; } .wcard p { font-size:11px; color:var(--dim); margin-top:3px; }
+.stat { display:flex; align-items:center; gap:8px; font-size:9px; color:var(--dim); letter-spacing:1px; margin-top:2px; } .stat:nth-of-type(1){margin-top:5px} .stat i { flex:1; height:3px; background:rgba(255,255,255,.1); position:relative; } .stat i b { position:absolute; left:0; top:0; bottom:0; background:var(--c); }
 #score table { width:100%; border-collapse:collapse; font-size:14px; } #score td,#score th { padding:5px 10px; text-align:left; } #score th { color:var(--dim); font-weight:500; letter-spacing:2px; font-size:12px; }
 #score tr.me td { color:#fff; font-weight:700; background:rgba(57,230,255,.12); }
 .cols { display:flex; gap:24px; } .cols > div { flex:1; }
@@ -175,7 +175,7 @@ select { font:inherit; background:#0d141d; color:#fff; border:1px solid #345; pa
     <canvas id="dmap" width="420" height="420"></canvas>
     <div class="loadout">
       <div id="wlist"></div>
-      <div class="hint" id="dhint">CLIQUE NO MAPA PARA ESCOLHER ONDE NASCER<br><br>Q TUNELAMENTO · E SUPERPOSIÇÃO · G GRANADA<br>CTRL CORRENDO = DESLIZAR · TAB PLACAR</div>
+      <div class="hint" id="dhint">CLIQUE NO MAPA PARA ESCOLHER ONDE NASCER · ESPAÇO IMPLANTA<br>Q TUNELAMENTO · E SUPERPOSIÇÃO · G GRANADA<br>CTRL CORRENDO = DESLIZAR · TAB PLACAR</div>
       <button class="pri" id="bDeploy">▶ IMPLANTAR</button>
     </div>
   </div>

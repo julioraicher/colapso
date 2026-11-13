@@ -108,7 +108,7 @@ class Game {
     this.lightning = 0; this.nextLightning = 6;
   }
   buildRain() {
-    const N = this.settings.quality === 'low' ? 700 : 1400; this.rainN = N;
+    const N = this.settings.quality === 'low' ? 400 : 1200; this.rainN = N;
     this.rainP = new Float32Array(N * 6); this.rainOff = new Float32Array(N * 3);
     for (let i = 0; i < N; i++) { this.rainOff[i * 3] = Math.random() * 40 - 20; this.rainOff[i * 3 + 1] = Math.random() * 20; this.rainOff[i * 3 + 2] = Math.random() * 40 - 20; }
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(this.rainP, 3).setUsage(THREE.DynamicDrawUsage));
@@ -174,6 +174,11 @@ class Game {
     this.state = 'play'; this.show(null);
     this.lock();
     this.spawnProtect = 2;
+    if (!localStorage.getItem('colapso.tips')) {
+      localStorage.setItem('colapso.tips', '1');
+      const tips = ['CAPTURE A, B E C · FIQUE DENTRO DO CÍRCULO', 'Q · TUNELAMENTO: ATRAVESSE PAREDES FINAS', 'E · SUPERPOSIÇÃO: CRIE UM ECO · E DE NOVO PARA TROCAR DE LUGAR', 'G · GRANADAS DERRUBAM PAREDES E PRÉDIOS'];
+      tips.forEach((t, i) => setTimeout(() => { if (this.state === 'play') this.hud.toast(t, 0); }, 1500 + i * 4200));
+    }
   }
   ammoFor(id) { const w = WEAPONS[id]; return { mag: w.mag, reserve: w.reserve }; }
   get W() { return this.weapons[this.slot]; }
@@ -188,7 +193,12 @@ class Game {
     document.addEventListener('keydown', (e) => {
       if (e.code === 'Tab') { e.preventDefault(); if (this.state === 'play') this.show('score', true); }
       this.keys[e.code] = true;
-      if (this.state !== 'play') { if (e.code === 'Escape' && this.state === 'pause') this.resume(); return; }
+      if (this.state !== 'play') {
+        if (e.code === 'Escape' && this.state === 'pause') this.resume();
+        if ((e.code === 'Space' || e.code === 'Enter') && this.state === 'deploy') this.deploy();
+        if (this.state === 'deploy' && /^Digit[1-4]$/.test(e.code)) { this.loadout = PRIMARIES[+e.code.slice(5) - 1]; this.hud.drawDeploy(); }
+        return;
+      }
       if (e.code === 'KeyR') this.startReload();
       if (e.code === 'Digit1' && this.slot !== 'primary') this.setWeapon('primary');
       if (e.code === 'Digit2' && this.slot !== 'secondary') this.setWeapon('secondary');
