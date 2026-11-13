@@ -69,7 +69,7 @@ const MKEY = 'colapso.missions.v1', MASTKEY = 'colapso.mastery.v1';
 const store = { get(k, d) { try { const v = JSON.parse(localStorage.getItem(k) || 'null'); return v ?? d; } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* storage unavailable */ } } };
 
 function newStats() {
-  return { shots: 0, hits: 0, accuracy: 0, kills: 0, headshots: 0, bestStreak: 0, longestShot: 0, favWeapon: '', distance: 0, voxels: 0, captures: 0, callins: 0, knifeKills: 0, vaults: 0, byWeapon: {} };
+  return { shots: 0, hits: 0, accuracy: 0, kills: 0, headshots: 0, bestStreak: 0, longestShot: 0, favWeapon: '', distance: 0, voxels: 0, captures: 0, callins: 0, knifeKills: 0, vaults: 0, missionXp: 0, byWeapon: {} };
 }
 
 // Spawn anchors for modes without owned flags (metres). Bases first, then landmarks spread over the map.
@@ -78,7 +78,7 @@ const ANCHORS = [BASES[0], BASES[1], ...FLAGS.map(f => ({ x: f.x, z: f.z })),
 
 export class Rules {
   constructor(g) {
-    this.g = g; this.pool = MISSION_POOL; this.mDirty = false; this.mSaveT = 0; this.capsSeen = 0; this.lx = 0; this.lz = 0; this.holdT = 0; this.acc = [0, 0];
+    this.g = g; this.pool = MISSION_POOL; this.mDirty = false; this.mSaveT = 0; this.capsSeen = 0; this.lx = 0; this.lz = 0; this.holdT = 0; this.acc = [0, 0]; this.warned = [false, false];
     g.mode = 'conquest'; g.modeName = MODES.conquest.name; g.mapName = MAP_NAME; g.matchTime = 0; g.timeLimit = 0; g.overtime = false;
     g.score = [0, 0]; g.scoreMax = 300; g.scoreLabel = 'TICKETS';
     g.stats = newStats(); g.lastDeath = null; g.mastery = store.get(MASTKEY, {}) || {};
@@ -93,12 +93,11 @@ export class Rules {
     return id;
   }
   cycle() { return this.setMode(MODE_ORDER[(MODE_ORDER.indexOf(this.g.mode) + 1) % MODE_ORDER.length]); }
-  // One-time hooks into the world / game for bookkeeping that would otherwise need edits all over main.js.
+  // One-time hook into the world: voxels chipped away by the player's bullets, blade or supply pod count for the stats
+  // (the caller marks who is responsible through game.hitBy; explosions report through addVox()).
   attach() {
     const g = this.g, w = g.world, dv = w.damageVoxel.bind(w);
     w.damageVoxel = (x, y, z, d) => { const m = dv(x, y, z, d); if (m && g.hitBy === g.pent) this.addVox(1); return m; };
-    const spot = g.spot.bind(g);
-    g.spot = () => { const s0 = g.pent.score; spot(); if (g.pent.score > s0) this.mission('spot', 1); };
   }
   // Called from startMatch() after the default (conquest) flags and tickets were created.
   start() {
@@ -118,7 +117,7 @@ export class Rules {
   update(dt) {
     const g = this.g, p = g.player;
     g.matchTime += dt;
-    if (p.alive) { const d = Math.hypot(p.pos.x - this.lx, p.pos.z - this.lz); if (d < 1.2) this.stat('distance', d); }
+    if (p.alive) { const d = Math.hypot(p.pos.x - this.lx, p.pos.z - this.lz); if (d < 1.2) g.stats.distance += d; }
     this.lx = p.pos.x; this.lz = p.pos.z;
     const caps = g.pent.caps || 0; if (caps > this.capsSeen) { this.stat('captures', caps - this.capsSeen); this.mission('cap', caps - this.capsSeen); } this.capsSeen = caps;
     if (g.mode === 'conquest') { g.updateFlags(dt); g.updateEvent(dt); }
@@ -147,7 +146,7 @@ export class Rules {
     }
     const now = f.owner === 0 && f.cap >= 1 ? 0 : f.owner === 1 && f.cap <= -1 ? 1 : -1;
     if (now !== was) {
-      if (now === 0) { const mine = g.inFlag(f); g.audio.play('capture', null, 0.5, 1, 0); g.hud.toast('REATOR DOMINADO', mine ? 200 : 0); if (mine) { g.pent.score += 200; g.pent.caps++; } }
+      if (now === 0) { const mine = g.inFlag(f); g.audio.play('capture', null, 0.5, 1, 0); g.hud.toast('REATOR CAPTURADO', mine ? 200 : 0); if (mine) { g.pent.score += 200; g.pent.caps++; } }
       else if (now === 1) { g.audio.play('lost', null, 0.5, 1, 0); g.hud.toast('A ÔMEGA DOMINOU O REATOR', 0, true); }
     }
     if (now >= 0 && f.n[1 - now] === 0) {
@@ -160,7 +159,7 @@ export class Rules {
   }
   // A soldier died (bots through onKill, the player through playerHurt).
   death(victim, killer) {
-    const g = this.g; if (g.state === 'end' || victim.team === undefined) return;
+    const g = this.g; if (g.state === 'end' || !victim || victim.team === undefined) return;
     if (g.mode === 'conquest') g.tickets[victim.team] = Math.max(0, g.tickets[victim.team] - 1);
     else if (g.mode === 'tdm' && killer && killer.team !== undefined && killer.team !== victim.team) {
       g.score[killer.team]++;
@@ -219,30 +218,30 @@ export class Rules {
   }
   spawnOptions() {
     const g = this.g, o = [{ ...BASES[0], label: 'BASE' }];
-    if (g.mode === 'tdm') { const a = this.safeAnchor(0); o.unshift({ x: a.x, z: a.z, label: 'EQ', name: 'JUNTO DA EQUIPE', tag: 'EQUIPE', dyn: true }); return o; }
+    if (g.mode === 'tdm') { const a = this.safeAnchor(0); o.unshift({ x: a.x, z: a.z, label: 'EQ', name: 'JUNTO DA EQUIPE', dyn: true }); return o; }
     for (const f of g.flags) if (f.spawn !== false && f.owner === 0 && Math.abs(f.cap) >= 1 && !f.contested) o.push({ ...f, label: f.id });
     return o;
   }
   // ---------- statistics ----------
   stat(k, n = 1) { const s = this.g.stats; s[k] = (s[k] || 0) + n; }
   addVox(n) { if (n > 0) { this.stat('voxels', n); this.mission('vox', n); } }
-  shot(D) { const s = this.g.stats; s.shots = (s.shots || 0) + (D.pellets || 1); s.accuracy = Math.min(100, Math.round(100 * (s.hits || 0) / Math.max(1, s.shots))); }
-  hit() { const s = this.g.stats; s.hits = (s.hits || 0) + 1; s.accuracy = Math.min(100, Math.round(100 * s.hits / Math.max(1, s.shots || 0))); }
+  shot(D) { const s = this.g.stats; s.shots += D.pellets || 1; s.accuracy = Math.min(100, Math.round(100 * s.hits / Math.max(1, s.shots))); }
+  hit() { const s = this.g.stats; s.hits++; s.accuracy = Math.min(100, Math.round(100 * s.hits / Math.max(1, s.shots))); }
   blastName(power) { return this.g.blast || (power >= 1.55 ? 'RPG-Q' : power > 1.2 ? 'BARRIL EXPLOSIVO' : 'GRANADA'); }
   // The player (or the echo) killed `victim`. Adds medals to `tags`, returns bonus points.
   playerKill(killer, victim, head, dist, tags) {
     const g = this.g, s = g.stats; let bonus = 0, id = null, fam = null;
     const how = g.killHow; g.killHow = null;
-    if (how === 'melee') { id = 'faca'; fam = 'knife'; const back = g.killBack; tags.push(back ? 'FACA · PELAS COSTAS' : 'FACA'); bonus += back ? 100 : 50; g.medal('faca'); this.stat('knifeKills'); }
+    if (how === 'melee') { id = 'faca'; fam = 'knife'; g.medal('faca'); this.stat('knifeKills'); }   // melee() shows its own "FACA" toast
     else if (how === 'pod') { id = 'capsula'; fam = 'expl'; tags.push('ENTREGA ESPECIAL'); bonus += 100; }
     else if (g.dmgCause) { id = g.blast ? 'artilharia' : 'explosivo'; fam = 'expl'; if (g.blast) { tags.push('ARTILHARIA'); this.mission('k_arty'); } }
     else { const D = killer === g.echo ? g.echo.wdef : g.hitD; id = weaponIdOf(D); fam = D ? FAMILY[D.type] : null; }
-    s.kills = (s.kills || 0) + 1;
-    if (head) s.headshots = (s.headshots || 0) + 1;
-    if (g.streak > (s.bestStreak || 0)) s.bestStreak = g.streak;
-    if (fam !== 'knife' && fam !== 'expl' && dist > (s.longestShot || 0)) s.longestShot = Math.round(dist);
+    s.kills++;
+    if (head) s.headshots++;
+    if (g.streak > s.bestStreak) s.bestStreak = g.streak;
+    if (fam !== 'knife' && fam !== 'expl' && dist > s.longestShot) s.longestShot = Math.round(dist);
     if (id) {
-      const bw = s.byWeapon || (s.byWeapon = {}); bw[id] = (bw[id] || 0) + 1;
+      const bw = s.byWeapon; bw[id] = (bw[id] || 0) + 1;
       let fav = id; for (const k in bw) if (bw[k] > bw[fav]) fav = k; s.favWeapon = fav;
       if (WEAPONS[id]) { g.mastery[id] = (g.mastery[id] || 0) + 1; store.set(MASTKEY, g.mastery); const n = g.mastery[id]; if (n === 25 || n === 100 || n === 250) { tags.push(`MAESTRIA ${WEAPONS[id].name} · ${n} ABATES`); bonus += n * 2; } }
     }
@@ -259,12 +258,18 @@ export class Rules {
   playerDied(from) {
     const g = this.g, p = g.player; let killerName, weaponName = g.dmgCause || '', dist = null;
     if (from === g.pent) { killerName = 'VOCÊ MESMO'; }
-    else if (from) { killerName = from.name || '???'; if (!weaponName && from.wdef) weaponName = from.wdef.name; if (from.pos) dist = Math.hypot(from.pos.x - p.pos.x, from.pos.y - p.pos.y, from.pos.z - p.pos.z); }
+    else if (from) { killerName = from.name || '???'; if (!weaponName && from.wdef) weaponName = from.wdef.name; if (from.pos && from.isBot) dist = Math.hypot(from.pos.x - p.pos.x, from.pos.y - p.pos.y, from.pos.z - p.pos.z); }
     else { killerName = g.dmgCause || 'AMBIENTE'; weaponName = ''; }
     g.lastDeath = { killerName, weaponName, dist };
   }
   // Display name of a stats weapon key.
   weaponName(id) { return WEAPONS[id] ? WEAPONS[id].name : id === 'faca' ? 'FACA' : id === 'artilharia' ? 'ARTILHARIA' : id === 'capsula' ? 'CÁPSULA' : id === 'explosivo' ? 'EXPLOSIVOS' : '—'; }
+  // Secondary tiles of the end screen: [label, value].
+  summary() {
+    const s = this.g.stats;
+    return [['PRECISÃO', (s.shots ? s.accuracy : 0) + '%'], ['TIROS NA CABEÇA', s.headshots], ['MELHOR SEQUÊNCIA', s.bestStreak], ['TIRO MAIS LONGO', s.longestShot + ' m'],
+      ['ARMA FAVORITA', s.favWeapon ? this.weaponName(s.favWeapon) : '—'], ['DISTÂNCIA', Math.round(s.distance) + ' m'], ['BLOCOS DESTRUÍDOS', s.voxels], ['REFORÇOS USADOS', s.callins]];
+  }
   finish(win) {
     const g = this.g;
     if (win) this.mission('win');

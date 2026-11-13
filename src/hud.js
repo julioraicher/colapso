@@ -8,6 +8,7 @@ import { scanTunnel } from './abilities.js';
 import { BASES } from './mapgen.js';
 import { AUDIO_CREDITS } from './audio.js';
 import { IC, kc, keycapify, esc, clsIcon, GADGET_IC, keyboardHTML, cheatHTML, RANKS, rankOf } from './ui-icons.js';
+import { MODES } from './rules.js';
 export { RANKS, rankOf };
 
 const $ = (id) => document.getElementById(id);
@@ -61,7 +62,7 @@ export class HUD {
   buildLegend() {
     const cls = this.g.cls || 'assalto'; this.legCls = this.g.cls;
     const it = [[kc('W') + kc('A') + kc('S') + kc('D'), 'MOVER'], [kc('SHIFT'), 'CORRER'], [kc('CTRL'), 'AGACHAR · DESLIZAR'], [kc('ESPAÇO'), 'PULAR'], [kc('M1'), 'ATIRAR'], [kc('M2'), 'MIRAR'], [kc('R'), 'RECARREGAR'],
-      [kc('G'), 'GRANADA'], [kc('Q'), 'TUNELAR'], [kc('E'), 'SUPERPOSIÇÃO'], [kc('F'), GSHORT[cls] || 'EQUIPAMENTO'], [kc('Z'), 'MARCAR'], [kc('TAB'), 'PLACAR'], [kc('M'), 'MAPA']];
+      [kc('G'), 'GRANADA'], [kc('Q'), 'TUNELAR'], [kc('E'), 'SUPERPOSIÇÃO'], [kc('F'), GSHORT[cls] || 'EQUIPAMENTO'], [kc('X'), 'MODO DE TIRO'], [kc('4') + kc('5') + kc('6'), 'REFORÇOS'], [kc('Z'), 'MARCAR'], [kc('TAB'), 'PLACAR'], [kc('M'), 'MAPA']];
     E('legin').innerHTML = it.map(([k, t]) => `<span>${k}${t}</span>`).join('') + `<span class="more">${kc('H')}TODOS OS CONTROLES</span>`;
     this.legDirty = true;
   }
@@ -100,15 +101,25 @@ export class HUD {
     const g = this.g;
     E('hud').classList.toggle('behind', !!id && id !== 'score');
     if (id) this.setMap(false);
-    if (id === 'menu') { this.rankBar(null, 'menuxp', 'menuxpb'); setH(E('menukeys'), ESS.map(([k, t]) => `<div><span class="ek">${k}</span>${t}</div>`).join('')); }
+    if (id === 'menu') { this.setMode(g.mode); this.rankBar(null, 'menuxp', 'menuxpb'); setH(E('menukeys'), ESS.map(([k, t]) => `<div><span class="ek">${k}</span>${t}</div>`).join('')); }
     else if (id === 'how') { E('howkbd').innerHTML = keyboardHTML(g); E('credits').innerHTML = '<b>CRÉDITOS DE ÁUDIO</b> · gravações de acervos livres, modificadas (corte, nível, camadas, afinação): ' + AUDIO_CREDITS.map(c => `${esc(c.pack)} (${esc(c.author)}, ${esc(c.licence)})`).join(' · ') + ' · Gráficos: three.js (MIT). Lista completa por arquivo em CREDITS.md no repositório.'; }
     else if (id === 'keys') E('keyskbd').innerHTML = keyboardHTML(g);
-    else if (id === 'pause') E('pausekeys').innerHTML = cheatHTML(g);
+    else if (id === 'pause') { E('pausekeys').innerHTML = cheatHTML(g); E('pmis').innerHTML = this.missionsHTML(); }
     else if (id === 'opts') this.fillOpts();
     else if (id === 'end') this.fillEnd();
     else if (id === 'score') this.drawScore();
   }
   setDiff(i) { for (const b of document.querySelectorAll('[data-diff]')) b.classList.toggle('on', +b.dataset.diff === i); E('diffx').textContent = DIFFX[i] || ''; }
+  // Main menu mode selector (same pattern as the difficulty selector): button state, description, play line, mission text.
+  setMode(id) {
+    const M = MODES[id] || MODES.conquest;
+    for (const b of document.querySelectorAll('[data-mode]')) b.classList.toggle('on', b.dataset.mode === M.id);
+    E('modex').textContent = M.desc; E('playx').textContent = M.play; E('lorex').textContent = M.goal;
+  }
+  // The three active missions with their progress (pause menu and end screen).
+  missionsHTML() {
+    return (this.g.missions || []).map(m => `<div class="mi${m.done ? ' done' : ''}"><span>${m.done ? IC.check : IC.star}${esc(m.text)}</span><em>${m.done ? 'CONCLUÍDA' : fmtN(m.prog) + ' / ' + fmtN(m.goal)} · +${m.xp} XP</em><i><b style="width:${Math.round(100 * m.prog / m.goal)}%"></b></i></div>`).join('');
+  }
   rankBar(nameId, textId, barId) {
     const xp = +(localStorage.getItem('colapso.xp') || 0), R = rankOf(xp), base = RANKS[R.i][1]; const fr = R.next ? (xp - base) / (R.next - base) : 1;
     if (nameId) $(nameId).textContent = R.name;
@@ -120,7 +131,9 @@ export class HUD {
     E('end').classList.toggle('lose', !win);
     if (g.tickets) E('endline').innerHTML = `<b>KAPPA ${g.tickets[0]}</b> &nbsp;×&nbsp; <b>${g.tickets[1]} ÔMEGA</b>`;
     if (pe) {
-      E('endtiles').innerHTML = [['ABATES', pe.kills || 0], ['MORTES', pe.deaths || 0], ['CAPTURAS', pe.caps || 0], ['PONTOS', fmtN(pe.score)]].map(([l, v]) => `<div class="tile"><b>${v}</b><span>${l}</span></div>`).join('');
+      E('endtiles').innerHTML = [['ABATES', pe.kills || 0], ['MORTES', pe.deaths || 0], ['CAPTURAS', pe.caps || 0], ['PONTOS', fmtN(pe.score)]].map(([l, v]) => `<div class="tile"><b>${v}</b><span>${l}</span></div>`).join('')
+        + (g.rules ? g.rules.summary().map(([l, v]) => `<div class="tile sm"><b>${esc(v)}</b><span>${l}</span></div>`).join('') : '');
+      E('endmis').innerHTML = this.missionsHTML();
       E('endS').classList.add('hidden');
     }
     this.rankBar('endrank', 'endxp', 'endxpb');
@@ -243,7 +256,7 @@ export class HUD {
     // entry points: chips + pulsing circles on the map
     const opts = g.spawnOptions(); this.spOpts = opts;
     const isSel = (o) => g.deploySel && g.deploySel.x === o.x && g.deploySel.z === o.z;
-    const spName = (o) => (o.label === 'BASE' ? 'BASE KAPPA' : 'PONTO ' + o.label);
+    const spName = (o) => (o.label === 'BASE' ? 'BASE KAPPA' : o.dyn ? o.name : 'PONTO ' + o.label);
     $('spawns').innerHTML = opts.map((o, i) => `<div class="chip ${isSel(o) ? 'sel' : ''}" data-i="${i}">${spName(o)}</div>`).join('');
     for (const el of document.querySelectorAll('#spawns .chip')) el.onclick = () => { g.deploySel = opts[+el.dataset.i]; this.drawDeploy(); };
     $('dhint').textContent = `ENTRADA: ${spName(opts.find(isSel) || opts[0])} · ${C.name}`;
@@ -286,7 +299,7 @@ export class HUD {
   }
   drawBig() {
     const cv = E('bmc'), ctx = this.bctx || (this.bctx = cv.getContext('2d')), g = this.g, W = cv.width, S = W / (SX * VS), p = g.player;
-    this.drawTac(ctx, W);
+    this.drawTac(ctx, W); this.drawCallins(ctx, S);
     for (const e of g.entities) {
       if (!e.alive || e.isPlayer) continue; if (e.team === 1 && !(e.spottedT > 0)) continue;
       ctx.fillStyle = e.isEcho ? '#b0ffff' : e.team === 0 ? CYAN : '#ff5a3a'; ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(e.pos.x * S, e.pos.z * S, 4.5, 0, TAU); ctx.fill(); ctx.stroke();
@@ -406,8 +419,8 @@ export class HUD {
     // --- vitals + abilities
     setT(E('hpv'), Math.max(0, Math.ceil(p.hp))); bar(E('hpbar').firstElementChild, p.hp / 100); setC(E('hpbar'), 'low', p.hp < 35); setC(E('vit'), 'low', p.hp < 35);
     setT(E('env'), Math.floor(g.energy)); bar(E('enbar').firstElementChild, g.energy / 100);
-    setC(E('abE'), 'act', echoOn); setC(E('abE'), 'off', !echoOn && g.energy < 50);
-    setT(E('abEs'), echoOn ? 'COLAPSAR · ' + g.echo.t.toFixed(1) + ' s' : g.energy < 50 ? 'SEM ENERGIA (50)' : 'CUSTO 50');
+    setC(E('abE'), 'act', echoOn); setC(E('abE'), 'off', !alive || (!echoOn && g.energy < 50));
+    setT(E('abEs'), !alive ? 'INDISPONÍVEL' : echoOn ? 'COLAPSAR · ' + g.echo.t.toFixed(1) + ' s' : g.energy < 50 ? 'SEM ENERGIA (50)' : 'CUSTO 50');
     // --- crosshair spread
     const sp = Math.round((D.spreadHip * (1 - g.ads) + D.spreadAds * g.ads + g.bloom + (Math.hypot(p.vel.x, p.vel.z) > 1 ? D.spreadMove : 0)) * 900 + 4) || 4;
     const xh = E('xh'); if (xh._sp !== sp) { xh._sp = sp; xh.style.setProperty('--sp', sp + 'px'); }
@@ -421,7 +434,7 @@ export class HUD {
         setC(th, 'hidden', false); const cost = Math.ceil(s.cost), poor = s.cost > g.energy;
         if (s.exit && s.cost <= 100) { setH(th, `${kc('Q')}ATRAVESSAR · d=${s.d.toFixed(1)} m · T=${s.T.toFixed(2)} · custo ${cost}`); setC(th, 'no', poor); setC(mk, 'hidden', false); setS(mk, 'left', Math.min(100, cost) + '%'); setT(qs, poor ? `SEM ENERGIA (${cost})` : 'CUSTO ' + cost); setC(abQ, 'off', poor); }
         else { setH(th, `${kc('Q')}BARREIRA ESPESSA · T≈0`); setC(th, 'no', true); setC(mk, 'hidden', true); setT(qs, 'PAREDE ESPESSA'); setC(abQ, 'off', true); }
-      } else { setC(th, 'hidden', true); setC(mk, 'hidden', true); const ok = g.energy >= 18; setC(abQ, 'off', !ok); setT(qs, ok ? 'AVANÇO · CUSTO 18' : 'SEM ENERGIA (18)'); }
+      } else { setC(th, 'hidden', true); setC(mk, 'hidden', true); const ok = act && g.energy >= 18; setC(abQ, 'off', !ok); setT(qs, !act ? 'INDISPONÍVEL' : ok ? 'AVANÇO · CUSTO 18' : 'SEM ENERGIA (18)'); }   // never "ready" while dead
     }
     // --- reload prompt under the crosshair
     const rl = E('rld'); let mode = 0; // 1 hint, 2 reloading, 3 out of ammo
@@ -434,7 +447,8 @@ export class HUD {
     }
     // --- tickets, flags row, capture box
     const tk = g.tickets; if (tk[0] > this.tkMax) this.tkMax = tk[0]; if (tk[1] > this.tkMax) this.tkMax = tk[1];
-    setT(E('tk0'), tk[0]); setT(E('tk1'), tk[1]); bar(E('tkb0'), tk[0] / this.tkMax); bar(E('tkb1'), tk[1] / this.tkMax);
+    const tm = g.scoreMax || this.tkMax;   // tickets count down from the maximum, kills and hill points count up to the target
+    setT(E('tk0'), tk[0]); setT(E('tk1'), tk[1]); bar(E('tkb0'), tk[0] / tm); bar(E('tkb1'), tk[1] / tm);
     let inF = null;
     for (let i = 0; i < g.flags.length; i++) {
       const f = g.flags[i], el = this.flagEls[i]; if (!el) continue; const o = owner(f), here = g.inFlag(f);
@@ -445,7 +459,7 @@ export class HUD {
     if (inF) {
       const c = inF.cap, b = E('capbar').firstElementChild, q = Math.round(c * 50), o = owner(inF);
       if (b._q !== q) { b._q = q; b.style.left = (q >= 0 ? 50 : 50 + q) + '%'; b.style.width = Math.abs(q) + '%'; b.style.background = q >= 0 ? CYAN : ORANGE; }
-      setT(E('captxt'), `PONTO ${inF.id} · ${inF.name} · ${inF.contested ? 'CONTESTADO' : c >= 1 ? 'SEGURO' : c < 0 ? 'NEUTRALIZANDO' : 'CAPTURANDO'} · ${inF.n[0]} × ${inF.n[1]}`);
+      setT(E('captxt'), `${inF.hill ? '' : 'PONTO ' + inF.id + ' · '}${inF.name} · ${inF.contested ? 'CONTESTADO' : c >= 1 ? 'SEGURO' : c < 0 ? 'NEUTRALIZANDO' : 'CAPTURANDO'} · ${inF.n[0]} × ${inF.n[1]}`);
       setC(cb, 'us', o === 0); setC(cb, 'them', o === 1);
     }
     // --- damage direction (fixed pool, no innerHTML)
@@ -472,16 +486,44 @@ export class HUD {
     this.slowT -= dt;
     if (this.slowT <= 0) {
       this.slowT = 0.5; let ml = (g.modeName || 'CONQUISTA') + (g.mapName ? ' · ' + g.mapName : ''); const mt = g.matchTime;
-      if (typeof mt === 'number' && isFinite(mt)) ml += ' · ' + Math.floor(mt / 60) + ':' + String(Math.floor(mt % 60)).padStart(2, '0');
+      if (typeof mt === 'number' && isFinite(mt)) {
+        const tl = g.timeLimit ? Math.max(0, g.timeLimit - mt) : mt, clock = Math.floor(tl / 60) + ':' + String(Math.floor(tl % 60)).padStart(2, '0');
+        ml += ' · ' + (g.timeLimit ? (g.overtime ? 'PRORROGAÇÃO' : 'RESTAM ' + clock) : clock);
+      }
+      if (g.mode && g.mode !== 'conquest' && g.scoreMax) ml += ' · META ' + g.scoreMax + ' ' + (g.scoreLabel || '');
       setT(E('modeline'), String(ml).toUpperCase());
     }
     this.tutUpdate(dt, W, act);
+    this.updateStreaks();
     this.updateObjs(act);
     // --- maps + scoreboard
     this.mapT -= dt; if (this.mapDirty && this.mapT <= 0) { this.mapDirty = false; this.mapT = 0.5; const r = this.mapBox; this.mapBox = null; this.bakeMap(r[0], r[1], r[2], r[3]); }
     this.drawMinimap();
     if (this.mapOpen) { this.bigT -= dt; if (this.bigT <= 0) { this.bigT = 0.1; this.drawBig(); } }
     if (!E('score').classList.contains('hidden')) { this.scT -= dt; if (this.scT <= 0) { this.scT = 0.25; this.drawScore(); } } else this.scT = 0;
+  }
+  // Call-in bar (three cells in the weapon panel) and the pre-match countdown.
+  updateStreaks() {
+    const g = this.g, S = g.streaks; if (!S) return;
+    const R = this.stEls || (this.stEls = S.map((s, i) => { const el = $('st' + i); return el ? { el, s: el.querySelector('span'), u: el.querySelector('u') } : null; }));
+    for (let i = 0; i < S.length; i++) {
+      const s = S[i], r = R[i]; if (!r) continue;
+      setC(r.el, 'rdy', s.ready && !s.active); setC(r.el, 'act', s.active);
+      setT(r.s, s.active ? 'ATIVA · ' + Math.ceil(s.t) + ' s' : s.ready ? 'PRONTA' : 'FALTAM ' + (s.cost - s.pts));
+      bar(r.u, s.active ? s.t / 20 : s.prog);
+    }
+    const cd = g.countdown > 0 && g.state === 'play'; setC(E('cd'), 'hidden', !cd);
+    if (cd) { setT(E('cdn'), Math.ceil(g.countdown)); setT(E('cdm'), (MODES[g.mode] || MODES.conquest).play.toUpperCase()); }
+  }
+  // Call-in overlays in map space (k = canvas units per metre): strike zones, supply pods, the UAV sweep ring.
+  drawCallins(ctx, k) {
+    const C = this.g.callins; if (!C) return; const p = this.g.player;
+    for (const S of C.strikes) {
+      const foe = S.team === 1; ctx.strokeStyle = foe ? '#ff4a3a' : CYAN; ctx.fillStyle = foe ? 'rgba(255,74,58,.22)' : 'rgba(57,230,255,.14)'; ctx.lineWidth = 0.6 * k;
+      ctx.beginPath(); ctx.arc(S.c.x * k, S.c.z * k, S.R * k, 0, TAU); ctx.fill(); ctx.stroke();
+    }
+    for (const P of C.pods) { ctx.fillStyle = '#7dff8a'; ctx.strokeStyle = '#04131b'; ctx.lineWidth = 0.3 * k; ctx.beginPath(); ctx.rect((P.x - 1.2) * k, (P.z - 1.2) * k, 2.4 * k, 2.4 * k); ctx.fill(); ctx.stroke(); }
+    if (C.sweep >= 0) { ctx.strokeStyle = 'rgba(57,230,255,' + (0.85 * (1 - C.sweep)).toFixed(2) + ')'; ctx.lineWidth = 1.2 * k; ctx.beginPath(); ctx.arc(p.pos.x * k, p.pos.z * k, (4 + C.sweep * 60) * k, 0, TAU); ctx.stroke(); }
   }
   slotRow(id, w, act) {
     if (!w) return; const r = this.slR || (this.slR = {}); const o = r[id] || (r[id] = { row: $(id), n: $(id + 'n'), a: $(id + 'a') });
@@ -532,6 +574,7 @@ export class HUD {
       ctx.beginPath(); ctx.arc(e.pos.x, e.pos.z, 0.9, 0, TAU); ctx.fill();
     }
     for (const gr of g.grenades) { ctx.fillStyle = '#ffd25a'; ctx.fillRect(gr.p.x - 0.5, gr.p.z - 0.5, 1, 1); }
+    this.drawCallins(ctx, 1);
     ctx.restore();
     // player arrow + north marker on the rim
     ctx.fillStyle = '#fff'; ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(W / 2, W / 2 - 8); ctx.lineTo(W / 2 - 6, W / 2 + 6); ctx.lineTo(W / 2, W / 2 + 3); ctx.lineTo(W / 2 + 6, W / 2 + 6); ctx.closePath(); ctx.fill(); ctx.stroke();
@@ -544,7 +587,7 @@ export class HUD {
     const rows = (team) => {
       const list = g.entities.filter(e => !e.isEcho && e.team === team).map(e => ({ n: e.name, k: e.kills || 0, d: e.deaths || 0, me: e.isPlayer, s: e.isPlayer ? e.score : (e.score ?? (e.kills || 0) * 100) }));
       list.sort((a, b) => b.s - a.s);
-      return `<tr><th>${team === 0 ? 'KAPPA' : 'ÔMEGA'}<em>${g.tickets[team]} TICKETS</em></th><th>ABATES</th><th>MORTES</th><th>PONTOS</th></tr>`
+      return `<tr><th>${team === 0 ? 'KAPPA' : 'ÔMEGA'}<em>${g.tickets[team]} ${g.scoreLabel || 'TICKETS'}</em></th><th>ABATES</th><th>MORTES</th><th>PONTOS</th></tr>`
         + list.map((r, i) => `<tr class="${r.me ? 'me' : ''}"><td><i>${i + 1}</i>${esc(r.n)}${r.me && r.n !== 'VOCÊ' ? '<u>VOCÊ</u>' : ''}</td><td>${r.k}</td><td>${r.d}</td><td>${r.s}</td></tr>`).join('');
     };
     setH(E('sc0'), rows(0)); setH(E('sc1'), rows(1));

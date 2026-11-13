@@ -279,6 +279,28 @@ select { font:inherit; background:#0d141d; color:#fff; border:1px solid rgba(255
 .tiles { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:18px 0 12px; } .tile { background:rgba(8,13,20,.82); border:1px solid var(--ln); border-radius:5px; padding:10px 6px; } .tile b { display:block; font-size:32px; line-height:1.1; } .tile span { font-size:10px; letter-spacing:2.5px; color:var(--dim); }
 .endx { font-size:13px; line-height:1.6; letter-spacing:1px; color:#dfe7f2; } .xpw { margin:10px auto 18px; width:460px; }
 .btns.hr { flex-direction:row; gap:12px; } .btns.hr .btn:hover, .btns.hr .btn:focus-visible { transform:translateY(-3px); }
+/* call-in bar (inside the weapon panel) */
+#strk { display:flex; gap:5px; margin-top:6px; border-top:1px solid var(--ln); padding-top:6px; }
+.st { flex:1 1 0; min-width:0; position:relative; display:flex; align-items:center; gap:5px; padding:4px 4px 8px 4px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.17); border-radius:4px; }
+.st:nth-child(2) { flex-grow:1.25; }
+.st b { display:block; font-size:9.5px; letter-spacing:.4px; white-space:nowrap; color:#aab3c0; } .st span { display:block; font-size:9.5px; letter-spacing:.2px; margin-top:1px; white-space:nowrap; color:var(--dim); }
+.st kbd { filter:brightness(.6); }
+.st > i { position:absolute; left:3px; right:3px; bottom:2px; height:3px; background:rgba(255,255,255,.12); overflow:hidden; border-radius:1px; } .st u { position:absolute; inset:0; background:var(--gold); transform-origin:left; transform:scaleX(0); }
+.st.rdy { background:rgba(255,210,90,.18); border-color:var(--gold); animation:pulse2 .7s infinite alternate; } .st.rdy b { color:#fff; } .st.rdy span { color:var(--gold); font-weight:700; letter-spacing:1px; } .st.rdy kbd { filter:none; }
+.st.act { background:rgba(57,230,255,.16); border-color:var(--c); } .st.act b { color:#fff; } .st.act span { color:var(--c); } .st.act u { background:var(--c); } .st.act kbd { filter:none; }
+/* pre-match countdown */
+#cd { position:absolute; left:50%; top:23%; transform:translateX(-50%); text-align:center; text-shadow:0 2px 10px #000, 0 0 3px #000; white-space:nowrap; }
+#cd small { display:block; font-size:12px; letter-spacing:5px; color:#dfe7f2; } #cd b { display:block; font-size:92px; line-height:1; font-weight:800; color:#fff; } #cd span { display:block; font-size:12px; letter-spacing:2.5px; color:var(--c); margin-top:4px; }
+/* missions (pause menu, end screen) and the secondary stat tiles */
+.mis { display:flex; flex-direction:column; gap:8px; }
+.mi { display:grid; grid-template-columns:1fr auto; gap:3px 10px; align-items:center; font-size:12px; letter-spacing:.8px; }
+.mi span { display:flex; align-items:center; gap:6px; } .mi .ic { width:14px; height:14px; color:var(--gold); } .mi em { font-style:normal; font-size:10.5px; color:var(--dim); letter-spacing:.8px; white-space:nowrap; }
+.mi > i { grid-column:1 / 3; height:4px; background:rgba(255,255,255,.13); border-radius:2px; overflow:hidden; } .mi > i b { display:block; height:100%; background:var(--gold); }
+.mi.done span { color:#8de6a0; } .mi.done .ic { color:#5bd67a; } .mi.done > i b { background:#5bd67a; }
+.mis.row { flex-direction:row; gap:10px; margin:10px 0 4px; text-align:left; } .mis.row .mi { flex:1; grid-template-columns:1fr; background:rgba(8,13,20,.82); border:1px solid var(--ln); border-radius:5px; padding:7px 9px; font-size:11px; } .mis.row .mi > i { grid-column:1; }
+.pleft .card { margin-top:14px; padding:12px 16px 14px; }
+.tile.sm { padding:7px 4px 6px; } .tile.sm b { font-size:18px; line-height:1.3; white-space:nowrap; } .tile.sm span { font-size:9px; letter-spacing:2px; }
+.tiles { margin:14px 0 10px; gap:8px; }
 #loading { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:#05070b; font-size:14px; letter-spacing:6px; color:var(--dim); flex-direction:column; gap:14px; }
 #loading .lb { width:260px; height:3px; background:#1a2230; } #loading .lb b { display:block; height:100%; width:0; background:var(--c); transition:width .2s; }
 </style>
@@ -308,6 +330,7 @@ select { font:inherit; background:#0d141d; color:#fff; border:1px solid rgba(255
   <div id="tunhint" class="hz hidden"></div>
   <div id="rld" class="hz hidden"><kbd class="kc">R</kbd><span id="rldt">RECARREGAR</span><div id="rldb"><b></b></div></div>
   <div id="breath" class="hz hidden"></div>
+  <div id="cd" class="hz hidden"><small>A PARTIDA COMEÇA EM</small><b id="cdn">5</b><span id="cdm"></span></div>
   <div id="sfeed" class="hz"></div>
   <div id="dead" class="hz hidden">
     <div class="dk"><span data-ic="skull"></span><div><small>ABATIDO POR</small><b id="deadN">—</b><em id="deadW"></em></div></div>
@@ -332,6 +355,11 @@ select { font:inherit; background:#0d141d; color:#fff; border:1px solid rgba(255
       <div class="slot" id="sl3"><span class="ks"><kbd class="kc">3</kbd><kbd class="kc">F</kbd></span><span class="sn" id="sl3n"></span><em id="sl3a"></em></div>
       <div class="slot" id="sl4"><span class="ks"><kbd class="kc">G</kbd></span><span class="sn"><span data-ic="grenade"></span> GRANADA</span><em id="nades">×3</em></div>
     </div>
+    <div id="strk">
+      <div class="st" id="st0"><kbd class="kc">4</kbd><div><b>UAV</b><span>FALTAM 600</span></div><i><u></u></i></div>
+      <div class="st" id="st1"><kbd class="kc">5</kbd><div><b>ARTILHARIA</b><span>FALTAM 1400</span></div><i><u></u></i></div>
+      <div class="st" id="st2"><kbd class="kc">6</kbd><div><b>CÁPSULA</b><span>FALTAM 900</span></div><i><u></u></i></div>
+    </div>
   </div>
   <div id="legend" class="hz"><div id="legin"></div></div>
   <div id="bigmap" class="hz hidden">
@@ -349,7 +377,12 @@ select { font:inherit; background:#0d141d; color:#fff; border:1px solid rgba(255
     <div class="sub">INSTITUTO KAPPA · NOITE DE TEMPESTADE</div>
     <div class="rankc"><span data-ic="medal"></span><div class="rkx"><div class="rkt"><b id="menurank"></b><span id="menuxp"></span></div><div class="xpb"><i id="menuxpb"></i></div></div></div>
     <div class="btns">
-      <button class="btn pri" id="bPlay"><span data-ic="play"></span><span><b>JOGAR</b><small>Conquista 8 contra 8 · capture os pontos A, B e C</small></span><kbd class="kc w go">ENTER</kbd></button>
+      <button class="btn pri" id="bPlay"><span data-ic="play"></span><span><b>JOGAR</b><small id="playx">Conquista 8 contra 8 · capture os pontos A, B e C</small></span><kbd class="kc w go">ENTER</kbd></button>
+      <div class="diff" id="bMode">
+        <div class="dfl"><span data-ic="flag"></span><b>MODO DE JOGO</b></div>
+        <div class="seg"><button data-mode="conquest">CONQUISTA</button><button data-mode="tdm">MATA-MATA</button><button data-mode="koth">REI DO REATOR</button></div>
+        <small id="modex"></small>
+      </div>
       <button class="btn" id="bHow"><span data-ic="help"></span><span><b>COMO JOGAR</b><small>Controles no teclado e no mouse, regras e habilidades</small></span><span class="go" data-ic="chev"></span></button>
       <div class="diff" id="bDiff">
         <div class="dfl"><span data-ic="target"></span><b>DIFICULDADE</b></div>
@@ -361,7 +394,7 @@ select { font:inherit; background:#0d141d; color:#fff; border:1px solid rgba(255
     </div>
   </div>
   <div class="mright">
-    <div class="card"><h3><span data-ic="flag"></span>MISSÃO</h3><p class="lore">O experimento de coerência macroscópica do Instituto Kappa deu certo demais: seu traje agora atravessa matéria e existe em dois lugares ao mesmo tempo. A facção Ômega quer a tecnologia. Segure os pontos A, B e C até os tickets inimigos zerarem.</p></div>
+    <div class="card"><h3><span data-ic="flag"></span>MISSÃO</h3><p class="lore">O experimento de coerência macroscópica do Instituto Kappa deu certo demais: seu traje agora atravessa matéria e existe em dois lugares ao mesmo tempo. A facção Ômega quer a tecnologia. <span id="lorex">Segure os pontos A, B e C até os tickets inimigos zerarem.</span></p></div>
     <div class="card"><h3><span data-ic="mousei"></span>CONTROLES ESSENCIAIS</h3><div id="menukeys" class="ess"></div><p class="hint" style="margin-top:12px">DURANTE A PARTIDA, AS TECLAS FICAM SEMPRE VISÍVEIS NA TELA.</p></div>
   </div>
 </div></div>
@@ -419,6 +452,7 @@ select { font:inherit; background:#0d141d; color:#fff; border:1px solid rgba(255
       <button class="btn" id="bPHow"><span data-ic="help"></span><span><b>COMO JOGAR</b><small>Teclado, mouse, regras e habilidades</small></span><span class="go" data-ic="chev"></span></button>
       <button class="btn dng" id="bMenu"><span data-ic="x"></span><span><b>ABANDONAR PARTIDA</b><small>Voltar ao menu principal</small></span></button>
     </div>
+    <div class="card"><h3><span data-ic="star"></span>MISSÕES</h3><div id="pmis" class="mis"></div></div>
   </div>
   <div class="card pright"><h3><span data-ic="mousei"></span>CONTROLES</h3><div id="pausekeys" class="cheat"></div></div>
 </div></div>
@@ -455,6 +489,7 @@ select { font:inherit; background:#0d141d; color:#fff; border:1px solid rgba(255
   <div class="sub" id="endS"></div>
   <div id="endtiles" class="tiles"></div>
   <div id="endX" class="endx"></div>
+  <div id="endmis" class="mis row"></div>
   <div class="xpw"><div class="rkt"><b id="endrank"></b><span id="endxp"></span></div><div class="xpb"><i id="endxpb"></i></div></div>
   <div class="btns hr">
     <button class="btn pri" id="bAgain"><span data-ic="play"></span><span><b>JOGAR DE NOVO</b><small>Nova partida, mesma dificuldade</small></span></button>
