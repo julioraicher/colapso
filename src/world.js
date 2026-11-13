@@ -67,6 +67,8 @@ export class World {
     this.glassMat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.45, depthWrite: false, fog: true });
     this.lost = [];
     this.onChange = null; // callback(minx,minz,maxx,maxz) for nav updates
+    this.dflag = new Uint8Array(CX * CY * CZ);     // 1 while a chunk sits in the dirty set (saves the Set lookups)
+    this.lostHold = false; this.held = false;      // a blast this frame: the mesher and the lamp-light flush wait one frame
   }
   idx(x, y, z) { return (y * SZ + z) * SX + x; }
   inb(x, y, z) { return x >= 0 && y >= 0 && z >= 0 && x < SX && y < SY && z < SZ; }
@@ -82,16 +84,17 @@ export class World {
   }
   markDirtyVoxel(x, y, z) {
     const cx = (x / CS) | 0, cy = (y / CS) | 0, cz = (z / CS) | 0;
-    this.dirty.add(this.cidx(cx, cy, cz));
+    this.markChunk((cy * CZ + cz) * CX + cx);
     // neighbours (faces/AO across chunk borders) and shadow receivers below
     const lx = x % CS, ly = y % CS, lz = z % CS;
-    if (lx === 0 && cx > 0) this.dirty.add(this.cidx(cx - 1, cy, cz));
-    if (lx === CS - 1 && cx < CX - 1) this.dirty.add(this.cidx(cx + 1, cy, cz));
-    if (lz === 0 && cz > 0) this.dirty.add(this.cidx(cx, cy, cz - 1));
-    if (lz === CS - 1 && cz < CZ - 1) this.dirty.add(this.cidx(cx, cy, cz + 1));
-    if (ly === 0 && cy > 0) this.dirty.add(this.cidx(cx, cy - 1, cz));
-    if (ly === CS - 1 && cy < CY - 1) this.dirty.add(this.cidx(cx, cy + 1, cz));
+    if (lx === 0 && cx > 0) this.markChunk(this.cidx(cx - 1, cy, cz));
+    if (lx === CS - 1 && cx < CX - 1) this.markChunk(this.cidx(cx + 1, cy, cz));
+    if (lz === 0 && cz > 0) this.markChunk(this.cidx(cx, cy, cz - 1));
+    if (lz === CS - 1 && cz < CZ - 1) this.markChunk(this.cidx(cx, cy, cz + 1));
+    if (ly === 0 && cy > 0) this.markChunk(this.cidx(cx, cy - 1, cz));
+    if (ly === CS - 1 && cy < CY - 1) this.markChunk(this.cidx(cx, cy + 1, cz));
   }
+  markChunk(ci) { if (!this.dflag[ci]) { this.dflag[ci] = 1; this.dirty.add(ci); } }
   cidx(cx, cy, cz) { return (cy * CZ + cz) * CX + cx; }
 
   transparent(m) { return m === 0 || m === MAT.GLASS || m === MAT.LEAF; }
@@ -105,11 +108,15 @@ export class World {
     this.propagate(q);
   }
   propagate(q) {
-    const SXZ = SX * SZ;
+    const SXZ = SX * SZ, v = this.v, lr = this.lr, lg = this.lg, lb = this.lb, GL = MAT.GLASS, LE = MAT.LEAF;
+    // FIFO in a reused typed array: the same visiting order and the same 400 000 cap as a plain array, without the garbage
+    let n = q.length, Q = this.pq;
+    if (!Q || Q.length < Math.max(n + 1, 400001)) Q = this.pq = new Int32Array(Math.max(n + 1, 400001));
+    for (let i = 0; i < n; i++) Q[i] = q[i];
     let h = 0;
-    while (h < q.length) {
-      const i = q[h++];
-      const r = this.lr[i] - 1, g = this.lg[i] - 1, b = this.lb[i] - 1;
+    while (h < n) {
+      const i = Q[h++];
+      const r = lr[i] - 1, g = lg[i] - 1, b = lb[i] - 1;
       if (r <= 0 && g <= 0 && b <= 0) continue;
       const x = i % SX, z = ((i / SX) | 0) % SZ, y = (i / SXZ) | 0;
       for (let k = 0; k < 6; k++) {
@@ -120,34 +127,59 @@ export class World {
         else if (k === 3) { if (z === 0) continue; j = i - SX; }
         else if (k === 4) { if (y === SY - 1) continue; j = i + SXZ; }
         else { if (y === 0) continue; j = i - SXZ; }
-        if (!this.transparent(this.v[j])) continue;
+        const m = v[j]; if (m !== 0 && m !== GL && m !== LE) continue;
         let up = false;
-        if (this.lr[j] < r) { this.lr[j] = r; up = true; }
-        if (this.lg[j] < g) { this.lg[j] = g; up = true; }
-        if (this.lb[j] < b) { this.lb[j] = b; up = true; }
-        if (up) { q.push(j); if (q.length > 400000) return; }
+        if (lr[j] < r) { lr[j] = r; up = true; }
+        if (lg[j] < g) { lg[j] = g; up = true; }
+        if (lb[j] < b) { lb[j] = b; up = true; }
+        if (up) { Q[n++] = j; if (n > 400000) return; }
       }
     }
   }
   // Destroyed emitters: clear light in the affected box (bbox + max range), then re-seed from the box shell
   // and surviving emitters inside it. Exact for BFS light since nothing outside the box depended on them.
+  // Lamps lost far apart are relit as separate boxes: two groups are independent when a gap of more than 30 voxels on
+  // one axis keeps the stale light of one (reach 14) clear of the other's box and shell (bbox + 16).
   flushLights() {
-    if (!this.lost.length) return;
-    let a = SX, b = SY, c = SZ, d = 0, e = 0, f = 0;
-    for (const [x, y, z] of this.lost) { a = Math.min(a, x); b = Math.min(b, y); c = Math.min(c, z); d = Math.max(d, x); e = Math.max(e, y); f = Math.max(f, z); }
-    this.lost.length = 0;
-    const R = 15;
+    this.lostHold = false;
+    const L = this.lost; if (!L.length) return;
+    const boxes = [];
+    for (let n = 0; n < L.length; n++) {
+      const p = L[n]; let a = p[0], b = p[1], c = p[2], d = p[0], e = p[1], f = p[2];
+      for (let i = boxes.length - 1; i >= 0; i--) {
+        const o = boxes[i];
+        if (o[0] - d > 30 || a - o[3] > 30 || o[1] - e > 30 || b - o[4] > 30 || o[2] - f > 30 || c - o[5] > 30) continue;
+        a = Math.min(a, o[0]); b = Math.min(b, o[1]); c = Math.min(c, o[2]); d = Math.max(d, o[3]); e = Math.max(e, o[4]); f = Math.max(f, o[5]);
+        boxes.splice(i, 1); i = boxes.length;                             // it grew: look at the other groups again
+      }
+      boxes.push([a, b, c, d, e, f]);
+    }
+    L.length = 0;
+    for (const o of boxes) this.flushBox(o[0], o[1], o[2], o[3], o[4], o[5]);
+  }
+  flushBox(a, b, c, d, e, f) {
+    const R = 15, v = this.v, lr = this.lr, lg = this.lg, lb = this.lb;
     const x0 = Math.max(0, a - R), y0 = Math.max(0, b - R), z0 = Math.max(0, c - R), x1 = Math.min(SX - 1, d + R), y1 = Math.min(SY - 1, e + R), z1 = Math.min(SZ - 1, f + R);
     const q = [];
-    for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
-      const i = this.idx(x, y, z); const m = this.v[i];
-      if (m >= 20 && m <= 24) { const em = MATDEF[m].emit; this.lr[i] = em[0]; this.lg[i] = em[1]; this.lb[i] = em[2]; q.push(i); }
-      else { this.lr[i] = 0; this.lg[i] = 0; this.lb[i] = 0; }
+    for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) {
+      let i = (y * SZ + z) * SX + x0;
+      for (let x = x0; x <= x1; x++, i++) {
+        const m = v[i];
+        if (m >= 20 && m <= 24) { const em = MATDEF[m].emit; lr[i] = em[0]; lg[i] = em[1]; lb[i] = em[2]; q.push(i); }
+        else { lr[i] = 0; lg[i] = 0; lb[i] = 0; }
+      }
     }
-    // shell just outside the box keeps valid light → seeds
-    for (let y = y0 - 1; y <= y1 + 1; y++) for (let z = z0 - 1; z <= z1 + 1; z++) for (let x = x0 - 1; x <= x1 + 1; x++) {
-      if (x >= x0 && x <= x1 && y >= y0 && y <= y1 && z >= z0 && z <= z1) continue;
-      if (!this.inb(x, y, z)) continue; const i = this.idx(x, y, z); if (this.lr[i] | this.lg[i] | this.lb[i]) q.push(i);
+    // shell just outside the box keeps valid light → seeds (walks only the six faces, in scan order)
+    const xa = Math.max(0, x0 - 1), xb = Math.min(SX - 1, x1 + 1);
+    for (let y = y0 - 1; y <= y1 + 1; y++) {
+      if (y < 0 || y >= SY) continue;
+      for (let z = z0 - 1; z <= z1 + 1; z++) {
+        if (z < 0 || z >= SZ) continue;
+        const row = (y * SZ + z) * SX;
+        if (y < y0 || y > y1 || z < z0 || z > z1) { for (let i = row + xa; i <= row + xb; i++) if (lr[i] | lg[i] | lb[i]) q.push(i); continue; }
+        if (x0 > 0) { const i = row + x0 - 1; if (lr[i] | lg[i] | lb[i]) q.push(i); }
+        if (x1 < SX - 1) { const i = row + x1 + 1; if (lr[i] | lg[i] | lb[i]) q.push(i); }
+      }
     }
     this.propagate(q);
     for (let y = y0; y <= y1 + CS; y += CS) for (let z = z0; z <= z1 + CS; z += CS) for (let x = x0; x <= x1 + CS; x += CS)
@@ -155,20 +187,35 @@ export class World {
   }
   // Newly opened cells pull light from neighbours (holes in walls leak neon outside).
   relight(cells) {
-    const q = [];
-    for (const [x, y, z] of cells) for (const [dx, dy, dz] of [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]]) {
-      if (this.inb(x + dx, y + dy, z + dz)) q.push(this.idx(x + dx, y + dy, z + dz));
+    const q = [], SXZ = SX * SZ;
+    for (let n = 0; n < cells.length; n++) {
+      const p = cells[n], x = p[0], y = p[1], z = p[2], i = (y * SZ + z) * SX + x;
+      if (x + 1 < SX) q.push(i + 1); if (x > 0) q.push(i - 1);
+      if (y + 1 < SY) q.push(i + SXZ); if (y > 0) q.push(i - SXZ);
+      if (z + 1 < SZ) q.push(i + SX); if (z > 0) q.push(i - SX);
     }
     this.propagate(q);
-    for (const [x, y, z] of cells) for (let dy = -6; dy <= 6; dy += 6) for (let dz = -6; dz <= 6; dz += 6) for (let dx = -6; dx <= 6; dx += 6)
-      if (this.inb(x + dx, y + dy, z + dz)) this.markDirtyVoxel(x + dx, y + dy, z + dz);
+    for (let n = 0; n < cells.length; n++) {
+      const p = cells[n], x = p[0], y = p[1], z = p[2];
+      for (let dy = -6; dy <= 6; dy += 6) for (let dz = -6; dz <= 6; dz += 6) for (let dx = -6; dx <= 6; dx += 6)
+        if (this.inb(x + dx, y + dy, z + dz)) this.markDirtyVoxel(x + dx, y + dy, z + dz);
+    }
   }
 
-  buildAll() { for (let i = 0; i < this.chunks.length; i++) this.buildChunk(i); this.dirty.clear(); }
-  // Rebuild a bounded number of dirty chunks per frame (keeps frame time flat after big explosions).
-  update(maxPerFrame = 6) {
-    let n = 0;
-    for (const i of this.dirty) { this.dirty.delete(i); this.buildChunk(i); if (++n >= maxPerFrame) break; }
+  buildAll() { for (let i = 0; i < this.chunks.length; i++) this.buildChunk(i); this.dirty.clear(); this.dflag.fill(0); }
+  // Rebuild dirty chunks: up to maxPerFrame of them and about budgetMs of work per call, so that no single frame
+  // carries the whole cost of a big blast. The frame of a blast itself is left alone (lostHold): the lamp-light flush
+  // it owes runs at the start of the next call, before the chunks (never two frames in a row late), and counts
+  // against the budget. A call without a flush always rebuilds at least one chunk.
+  update(maxPerFrame = 6, budgetMs = maxPerFrame) {
+    if (this.lostHold && !this.held) { this.held = true; this.lostHold = false; return; }
+    this.held = false; this.lostHold = false;
+    const t0 = performance.now(); let n = 0, flushed = false;
+    if (this.lost.length) { this.flushLights(); flushed = true; }
+    for (const i of this.dirty) {
+      if (n >= maxPerFrame || ((n || flushed) && performance.now() - t0 >= budgetMs)) break;
+      this.dirty.delete(i); this.dflag[i] = 0; this.buildChunk(i); n++;
+    }
   }
 
   // Sun visibility from a point (voxel coords): DDA-free fixed-step march, early-outs at world top.
@@ -334,7 +381,7 @@ export class World {
     if (isEmitter(m)) this.lost.push([x, y, z]);
     this.afterRemoval([[x, y, z]]);
     this.relight([[x, y, z]]);
-    this.flushLights();
+    if (this.lost.length) this.lostHold = true;      // lamp light is flushed by update() on the next frame
     return m;
   }
   // Spherical blast (world centre, radius in m). Returns list of removed {x,y,z,m} (for debris).
@@ -364,50 +411,60 @@ export class World {
         }
     const fallen = this.afterRemoval(edge);
     this.relight(edge.length > 200 ? edge.filter((_, i) => i % 4 === 0) : edge);
-    this.flushLights();
+    if (edge.length) this.lostHold = true;           // the mesher and the lamp-light flush start on the next frame (see update)
     return { removed, fallen };
   }
 
   // Structural integrity: flood fill from neighbours of removed voxels. Any component not connected
   // to the ground (y<=1 or indestructible) within a budget becomes falling debris.
+  // The fill runs on voxel indices in reused typed arrays (visited flags, stack, component), in the search order of the
+  // original version: DFS that pops the last-pushed neighbour first, "down" pushed last so that it dives to the ground.
   afterRemoval(cells) {
-    const seen = new Set(); const fallen = [];
-    // DFS pops the last-pushed neighbour first: push "down" last so the search dives toward the ground
-    const N6 = [[0, 1, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1], [0, -1, 0]];
-    const seeds = [];
-    for (const [x, y, z] of cells) for (const n of N6) {
-      const a = x + n[0], b = y + n[1], c = z + n[2];
-      if (this.inb(a, b, c) && this.v[this.idx(a, b, c)]) seeds.push([a, b, c]);
-    }
+    const v = this.v, SXZ = SX * SZ, fallen = [];
+    if (!this.arSeen) { this.arSeen = new Uint8Array(SX * SY * SZ); this.arList = new Int32Array(1 << 16); this.arStack = new Int32Array(6 * 6002 + 8); this.arComp = new Int32Array(6002); }
+    const seen = this.arSeen, stack = this.arStack, comp = this.arComp; let list = this.arList, ln = 0;
     let budget = 150000;
-    for (const s of seeds) {
-      const si = this.idx(s[0], s[1], s[2]);
-      if (seen.has(si)) continue;
-      const comp = []; const stack = [s]; seen.add(si);
-      let grounded = false;
-      while (stack.length) {
-        const p = stack.pop(); comp.push(p);
-        if (p[1] <= 1) { grounded = true; break; }
-        const m = this.v[this.idx(p[0], p[1], p[2])];
-        if (MATDEF[m].hp >= 255) { grounded = true; break; }
-        if (--budget <= 0 || comp.length > 6000) { grounded = true; break; } // too big to evaluate → assume supported
-        for (const n of N6) {
-          const a = p[0] + n[0], b = p[1] + n[1], c = p[2] + n[2];
-          if (!this.inb(a, b, c)) continue;
-          const j = this.idx(a, b, c);
-          if (seen.has(j) || !this.v[j]) continue;
-          seen.add(j); stack.push([a, b, c]);
+    scan:
+    for (let n = 0; n < cells.length; n++) {
+      const cl = cells[n], cx = cl[0], cy = cl[1], cz = cl[2];
+      for (let k = 0; k < 6; k++) {
+        const a = cx + (k === 1 ? 1 : k === 2 ? -1 : 0), b = cy + (k === 0 ? 1 : k === 5 ? -1 : 0), c = cz + (k === 3 ? 1 : k === 4 ? -1 : 0);
+        if (a < 0 || b < 0 || c < 0 || a >= SX || b >= SY || c >= SZ) continue;
+        const si = (b * SZ + c) * SX + a;
+        if (!v[si] || seen[si]) continue;
+        let sn = 0, cn = 0, grounded = false;
+        stack[sn++] = si; seen[si] = 1; if (ln === list.length) { const g = new Int32Array(ln * 2); g.set(list); list = this.arList = g; } list[ln++] = si;
+        while (sn) {
+          const i = stack[--sn]; comp[cn++] = i;
+          const y = (i / SXZ) | 0;
+          if (y <= 1) { grounded = true; break; }
+          if (MATDEF[v[i]].hp >= 255) { grounded = true; break; }
+          if (--budget <= 0 || cn > 6000) { grounded = true; break; } // too big to evaluate → assume supported
+          const x = i % SX, z = ((i / SX) | 0) % SZ;
+          for (let m = 0; m < 6; m++) {
+            let j;
+            if (m === 0) { if (y === SY - 1) continue; j = i + SXZ; }
+            else if (m === 1) { if (x === SX - 1) continue; j = i + 1; }
+            else if (m === 2) { if (x === 0) continue; j = i - 1; }
+            else if (m === 3) { if (z === SZ - 1) continue; j = i + SX; }
+            else if (m === 4) { if (z === 0) continue; j = i - SX; }
+            else { j = i - SXZ; }                                     // y >= 2 here
+            if (seen[j] || !v[j]) continue;
+            seen[j] = 1; if (ln === list.length) { const g = new Int32Array(ln * 2); g.set(list); list = this.arList = g; } list[ln++] = j;
+            stack[sn++] = j;
+          }
         }
-      }
-      if (!grounded) {
-        for (const p of comp) {
-          const i = this.idx(p[0], p[1], p[2]);
-          fallen.push({ x: p[0], y: p[1], z: p[2], m: this.v[i] }); if (this.v[i] >= 20 && this.v[i] <= 24) this.lost.push(p);
-          this.v[i] = 0; this.hp[i] = 0; this.markDirtyVoxel(p[0], p[1], p[2]);
+        if (!grounded) {
+          for (let q = 0; q < cn; q++) {
+            const i = comp[q], x = i % SX, z = ((i / SX) | 0) % SZ, y = (i / SXZ) | 0, m = v[i];
+            fallen.push({ x, y, z, m }); if (m >= 20 && m <= 24) this.lost.push([x, y, z]);
+            v[i] = 0; this.hp[i] = 0; this.markDirtyVoxel(x, y, z);
+          }
         }
+        if (budget <= 0) break scan;
       }
-      if (budget <= 0) break;
     }
+    for (let q = 0; q < ln; q++) seen[list[q]] = 0;
     if (fallen.length && this.onFall) this.onFall(fallen);
     if (this.onChange) {
       let a = SX, b = SZ, c = 0, d = 0;

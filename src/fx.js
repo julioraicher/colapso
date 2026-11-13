@@ -533,18 +533,21 @@ export class FX {
   // two bursts fired close together in time (tunnel entry -> exit, collapse onto the echo)
   quantum(p, n = 30, col = [0.3, 1, 1]) {
     const R = Math.random, S = this.sparks, mag = col[0] > 0.7, cam = this.camera;
+    // sister colour of the accents: cyan <-> magenta for the player's quantum effects; any other hue (the orange of an
+    // Omega phase-dash) keeps its own family and goes to a pale amber, so it never reads as a Kappa effect
+    const own = mag && col[2] < 0.6, sr = own ? 1 : mag ? 0.3 : 1, sg = own ? 0.8 : mag ? 1 : 0.4, sb = own ? 0.45 : 1;
     n = Math.round(n * (0.6 + 0.4 * this.q));
     for (let i = 0; i < n; i++) {
       const a = R() * 6.283, b = R() * Math.PI - Math.PI / 2, s = 1.5 + R() * 4.5;
       const k = S.emit(p.x, p.y, p.z, Math.cos(a) * Math.cos(b) * s, Math.sin(b) * s, Math.sin(a) * Math.cos(b) * s, col[0], col[1], col[2], 0.45 + R() * 0.35, 0, 2.6, 0.9, 0.3);
-      if (i % 3 === 0) S.fade(k, mag ? 0.3 : 1, mag ? 1 : 0.4, 1);                         // a few motes shift to the sister colour
+      if (i % 3 === 0) S.fade(k, sr, sg, sb);                                              // a few motes shift to the sister colour
     }
     this.glow.emit(p.x, p.y, p.z, 0, 0, 0, col[0], col[1], col[2], 0.3, 0, 0, 0.6, 1.5);
     // ripple: when the burst sits on the camera (first person) the ring opens just ahead of the eye
     let rx = p.x, ry = p.y, rz = p.z, r1 = 2.2, ra = 0.75, rt = 0.16;
     if (cam && cam.position.distanceToSquared(p) < 0.6) { cam.getWorldDirection(this.tv); rx += this.tv.x * 1.7; ry += this.tv.y * 1.7; rz += this.tv.z * 1.7; r1 = 2.6; ra = 0.4; rt = 0.09; }
     this.rings.emit(rx, ry, rz, 0.15, r1, 0.5, col[0], col[1], col[2], ra, rt, true);
-    this.rings.emit(rx, ry, rz, 0.1, r1 * 0.7, 0.55, mag ? 0.3 : 1, mag ? 1 : 0.4, 1, ra * 0.66, rt * 0.6, true, 0.09);
+    this.rings.emit(rx, ry, rz, 0.1, r1 * 0.7, 0.55, sr, sg, sb, ra * 0.66, rt * 0.6, true, 0.09);
     const dt = this.t - this.lastQT, dd = p.distanceTo(this.lastQP);
     if (dt < 1.5 && this.lastQM === mag && dd > 1.2 && dd < 30) {
       this._trace(this.lastQP, p, col[0], col[1], col[2], 0.6, 0.5, 0.45);

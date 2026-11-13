@@ -16,15 +16,15 @@ export class Nav {
   constructor(world) { this.w = world; this.h = new Int16Array(NX * NZ).fill(-1); this.rebuild(0, 0, NX - 1, NZ - 1); }
   // standable voxel layer per cell: lowest y with solid below and 4 voxels (2 m) headroom over the whole cell
   rebuild(a, b, c, d) {
-    const w = this.w;
+    const v = this.w.v;                                               // every cell read below is inside the world
     for (let cz = Math.max(0, b); cz <= Math.min(NZ - 1, d); cz++) for (let cx = Math.max(0, a); cx <= Math.min(NX - 1, c); cx++) {
       let res = -1;
       for (let y = 1; y < SY - 4 && res < 0; y++) {
         let ok = true, support = false;
         for (let dz = 0; dz < NV && ok; dz++) for (let dx = 0; dx < NV && ok; dx++) {
-          const x = cx * NV + dx, z = cz * NV + dz;
-          for (let k = 0; k < 4; k++) { const m = w.get(x, y + k, z); if (m && m !== 14) { ok = false; break; } }
-          if (w.get(x, y - 1, z)) support = true;
+          const i = (y * SZ + cz * NV + dz) * SX + cx * NV + dx;
+          for (let k = 0; k < 4; k++) { const m = v[i + k * SX * SZ]; if (m && m !== 14) { ok = false; break; } }
+          if (v[i - SX * SZ]) support = true;
         }
         if (ok && support) res = y;
       }
@@ -66,29 +66,38 @@ export class Nav {
     }
     return best || this.nearestOk(cx, cz);
   }
-  // A* with octile heuristic, binary heap
+  // A* with octile heuristic, binary heap (two parallel typed arrays: f and cell, reused between calls)
   path(from, to, maxIter = 6000) {
     let s = this.startCell(from), g = this.goalCell(to);
     if (!s || !g) return null;
     const N = NX * NZ, si = s[1] * NX + s[0], gi = g[1] * NX + g[0];
-    if (!this.gs || this.gs.length !== N) { this.gs = new Float32Array(N); this.came = new Int32Array(N); this.stamp = new Uint32Array(N); this.st = 0; this.closed = new Uint32Array(N); }
-    const st = ++this.st; const gs = this.gs, came = this.came, stamp = this.stamp, closed = this.closed;
-    const heap = []; const hf = (i) => { const x = i % NX, z = i / NX | 0; const dx = Math.abs(x - g[0]), dz = Math.abs(z - g[1]); return Math.max(dx, dz) + 0.414 * Math.min(dx, dz); };
-    const push = (i, f) => { heap.push([f, i]); let k = heap.length - 1; while (k > 0) { const p = (k - 1) >> 1; if (heap[p][0] <= heap[k][0]) break; [heap[p], heap[k]] = [heap[k], heap[p]]; k = p; } };
-    const pop = () => { const top = heap[0]; const last = heap.pop(); if (heap.length) { heap[0] = last; let k = 0; for (;;) { const l = 2 * k + 1, r = l + 1; let m = k; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === k) break; [heap[m], heap[k]] = [heap[k], heap[m]]; k = m; } } return top; };
+    if (!this.gs || this.gs.length !== N) { this.gs = new Float32Array(N); this.came = new Int32Array(N); this.stamp = new Uint32Array(N); this.st = 0; this.closed = new Uint32Array(N); this.hF = new Float64Array(8 * 6000 + 16); this.hI = new Int32Array(8 * 6000 + 16); }
+    const st = ++this.st; const gs = this.gs, came = this.came, stamp = this.stamp, closed = this.closed, hgt = this.h;
+    if (this.hF.length < 8 * maxIter + 16) { this.hF = new Float64Array(8 * maxIter + 16); this.hI = new Int32Array(8 * maxIter + 16); }
+    const hF = this.hF, hI = this.hI, gx = g[0], gz = g[1]; let hn = 0;
+    const hf = (i) => { const x = i % NX, z = i / NX | 0; const dx = Math.abs(x - gx), dz = Math.abs(z - gz); return Math.max(dx, dz) + 0.414 * Math.min(dx, dz); };
+    const push = (i, f) => { let k = hn++; while (k > 0) { const p = (k - 1) >> 1; if (hF[p] <= f) break; hF[k] = hF[p]; hI[k] = hI[p]; k = p; } hF[k] = f; hI[k] = i; };
+    const pop = () => {
+      const top = hI[0]; hn--;
+      if (hn) { const f = hF[hn], id = hI[hn]; let k = 0; for (;;) { const l = 2 * k + 1, r = l + 1; let m = k, mf = f; if (l < hn && hF[l] < mf) { m = l; mf = hF[l]; } if (r < hn && hF[r] < mf) m = r; if (m === k) break; hF[k] = hF[m]; hI[k] = hI[m]; k = m; } hF[k] = f; hI[k] = id; }
+      return top;
+    };
+    // the same rule as pass(): one voxel up, down as far as a body can safely drop
+    const step = (ha, ni) => { const hb = hgt[ni]; return hb >= 0 && hb - ha <= 1 && ha - hb <= 6; };
     gs[si] = 0; stamp[si] = st; came[si] = -1; push(si, hf(si));
     let it = 0, best = si, bestH = hf(si);
-    while (heap.length && it++ < maxIter) {
-      const [, i] = pop();
+    while (hn && it++ < maxIter) {
+      const i = pop();
       if (closed[i] === st) continue; closed[i] = st;
       if (i === gi) { best = gi; break; }
-      const x = i % NX, z = i / NX | 0;
+      const x = i % NX, z = i / NX | 0, ha = hgt[i];
       const hh = hf(i); if (hh < bestH) { bestH = hh; best = i; }
       for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
         if (!dx && !dz) continue;
-        const nx = x + dx, nz = z + dz; if (!this.ok(nx, nz) || !this.pass(x, z, nx, nz)) continue;
-        if (dx && dz && (!this.ok(x + dx, z) || !this.ok(x, z + dz) || !this.pass(x, z, x + dx, z) || !this.pass(x, z, x, z + dz))) continue;
-        const ni = nz * NX + nx; const cost = gs[i] + (dx && dz ? 1.414 : 1);
+        const nx = x + dx, nz = z + dz; if (nx < 0 || nz < 0 || nx >= NX || nz >= NZ) continue;
+        const ni = nz * NX + nx; if (ha < 0 || !step(ha, ni)) continue;
+        if (dx && dz && (!step(ha, z * NX + nx) || !step(ha, nz * NX + x))) continue;
+        const cost = gs[i] + (dx && dz ? 1.414 : 1);
         if (stamp[ni] !== st || cost < gs[ni]) { stamp[ni] = st; gs[ni] = cost; came[ni] = i; push(ni, cost + hf(ni)); }
       }
     }

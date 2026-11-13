@@ -98,9 +98,14 @@ class Game {
     requestAnimationFrame((t) => this.loop(t));
   }
 
+  // Top of every voxel column (highest solid voxel + 1). After the map is generated voxels are only ever removed, so
+  // a column is rescanned downwards from its previous top (0 = never scanned).
   updateColTop(a, b, c, d) {
+    const v = this.world.v, top = this.colTop;
     for (let z = Math.max(0, b); z <= Math.min(SZ - 1, d); z++) for (let x = Math.max(0, a); x <= Math.min(SX - 1, c); x++) {
-      let y = SY - 1; while (y > 0 && !this.world.get(x, y, z)) y--; this.colTop[z * SX + x] = y + 1;
+      const k = z * SX + x; let y = top[k] ? top[k] - 1 : SY - 1;
+      while (y > 0 && !v[(y * SZ + z) * SX + x]) y--;
+      top[k] = y + 1;
     }
   }
   buildSky() {
@@ -334,7 +339,7 @@ class Game {
         const k = Math.max(0, 1 - b.dist / 8);
         const a = prev.clone().addScaledVector(b.off, k), e = b.p.clone().addScaledVector(b.off, Math.max(0, k - L / 8));
         if (b.rocket) { this.fx.smoke.emit(b.p.x, b.p.y, b.p.z, (Math.random() - .5), 0.5, (Math.random() - .5), 0.55, 0.55, 0.58, 1.6, -0.3, 1); this.fx.glow.emit(b.p.x, b.p.y, b.p.z, 0, 0, 0, 1, 0.6, 0.25, 0.06, 0); }
-        else this.fx.tracer(a, e, b.shooter.team === 0 ? [1, 0.85, 0.55] : [1, 0.55, 0.3]);
+        else this.fx.tracer(a, e, b.shooter.team);                // team colour: Kappa cyan-white, Omega orange
       }
       // near-miss: supersonic crack/whiz + suppression when an enemy round passes the player's head
       if (!b.whiz && b.shooter.team !== 0 && this.player.alive) {
@@ -779,7 +784,7 @@ class Game {
         if (E.k >= seq.length) {
           // the halo rings lost their supports: integrity pass makes them crash down
           const probe = []; for (let a = 0; a < 6.28; a += 0.2) for (const y of [G + 9, G + 11, G + 14, G + 16]) probe.push([Math.round(96 + Math.cos(a) * 5), y, Math.round(96 + Math.sin(a) * 5)]);
-          this.world.afterRemoval(probe); this.world.flushLights();
+          this.world.afterRemoval(probe);                         // (the lamp light it changes is flushed by world.update)
           E.st = 'done'; this.hud.event(null); this.hud.toast('O REATOR COLAPSOU', 0); }
       }
     }

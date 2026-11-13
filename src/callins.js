@@ -1,11 +1,12 @@
 // Call-in rewards earned with score: [4] UAV sweep, [5] artillery barrage, [6] supply pod, plus the enemy team's
 // occasional artillery strike. Every reward has its own meter that fills with the player's points (they survive death)
 // and empties when the reward is used. Blasts go through game.explode(); this module owns only its own visuals
-// (marker pillars, the falling shells' streaks, the pod).
+// (marker columns of light, the falling shells' streaks, the pod).
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { VS, SX, SZ } from './world.js';
 import { WEAPONS } from './weapons.js';
+import { Beams } from './fx.js';
 
 export const STREAKS = [
   { id: 'uav', key: '4', name: 'VARREDURA UAV', short: 'UAV', cost: 600 },
@@ -18,6 +19,8 @@ const MAPW = SX * VS, MAPD = SZ * VS;
 const rnd = (k) => (Math.random() - 0.5) * 2 * k;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const _a = new THREE.Vector3(), _b = new THREE.Vector3();
+// marker columns: Kappa strike, Omega strike, supply pod (rgb at full strength)
+const NB = 8, C_MINE = [0.2, 0.86, 1.0], C_FOE = [1.0, 0.27, 0.2], C_POD = [0.42, 1.0, 0.5];
 
 function paint(geo, col) {
   const n = geo.attributes.position.count, c = new Float32Array(n * 3), k = new THREE.Color(col);
@@ -47,25 +50,31 @@ export class CallIns {
     this.seen = 0; this.eT = 0; this.eKills = 0; this.pollT = 0; this.evtOn = false; this.used = 0; this.podTold = false;
     this.battery = { team: 1, name: 'ARTILHARIA ÔMEGA', pos: new THREE.Vector3(), kills: 0 };
   }
-  // Build the shared geometry / materials and leave hidden prototypes in the scene, so their shaders are compiled
-  // with everything else while the game loads (no hitch at the first call-in).
+  // Build the shared geometry / materials and leave a hidden prototype in the scene, so its shader is compiled with
+  // everything else while the game loads (no hitch at the first call-in). The marker columns are soft camera-facing
+  // beams (the cards of the objective columns): one draw call for all of them, none while no marker is up.
   warm() {
-    this.pillarGeo = new THREE.CylinderGeometry(1, 1, 1, 6, 1, true).translate(0, 0.5, 0);
     this.podGeo = podGeometry(); this.podGlow = podGlowGeometry();
     this.podMat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
     this.podLit = new THREE.MeshBasicMaterial({ color: 0x7dff8a, side: THREE.DoubleSide });
-    const a = this.pillar(0xffffff), b = this.podMesh(); a.visible = b.visible = false; this.g.scene.add(b);
+    const B = this.beams = new Beams(this.g.scene, NB, { fog: 0.1, order: 3 }); this.beamOn = new Uint8Array(NB); this.beamN = 0;
+    for (let i = 0; i < NB; i++) B.set(i, 0, -50, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0);
+    B.mesh.visible = false;
+    const b = this.podMesh(); b.visible = false; this.g.scene.add(b);
   }
-  pillar(col, h = 46, r = 0.2) {
-    const m = new THREE.Mesh(this.pillarGeo, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, side: THREE.DoubleSide }));
-    m.scale.set(r, h, r); this.g.scene.add(m); return m;
+  // A column of light h metres tall standing on (x, y, z). Returns its slot, or -1 when every slot is taken.
+  beam(x, y, z, h, r) {
+    let i = 0; while (i < NB && this.beamOn[i]) i++; if (i >= NB) return -1;
+    this.beamOn[i] = 1; this.beamN++; this.beams.set(i, x, y, z, 0, 1, 0, h, r, r * 0.4, 0, 0, 0); this.beams.mesh.visible = true;
+    return i;
   }
-  unpillar(m) { if (m) { this.g.scene.remove(m); m.material.dispose(); } }
+  unbeam(i) { if (i >= 0 && this.beamOn[i]) { this.beamOn[i] = 0; this.beams.hide(i); if (--this.beamN <= 0) { this.beamN = 0; this.beams.mesh.visible = false; } } }
+  lit(i, c, k) { if (i >= 0) this.beams.setColor(i, c[0] * k, c[1] * k, c[2] * k); }
   podMesh() { const m = new THREE.Mesh(this.podGeo, this.podMat); m.add(new THREE.Mesh(this.podGlow, this.podLit)); return m; }
   reset() {
     const g = this.g;
-    for (const S of this.strikes) this.unpillar(S.mesh);
-    for (const P of this.pods) { g.scene.remove(P.mesh); this.unpillar(P.light); }
+    for (const S of this.strikes) this.unbeam(S.beam);
+    for (const P of this.pods) { g.scene.remove(P.mesh); this.unbeam(P.beam); }
     this.strikes.length = 0; this.shells.length = 0; this.pods.length = 0; this.sweep = -1; this.sweepT = 0;
     for (const s of g.streaks) { s.pts = 0; s.prog = 0; s.ready = false; s.active = false; s.t = 0; s.lock = 0; }
     g.streakPts = 0; this.seen = 0; this.eT = 0; this.eKills = 0; this.pollT = 0; this.used = 0; this.battery.kills = 0; this.podTold = false;
@@ -108,10 +117,10 @@ export class CallIns {
     return q;
   }
   topAt(x, z) { return this.g.colTop[clamp(z / VS | 0, 0, SZ - 1) * SX + clamp(x / VS | 0, 0, SX - 1)] * VS; }
-  // Artillery: coloured smoke and a light pillar on the target, then ARTY_N shells inside ARTY_R over about four seconds.
+  // Artillery: coloured smoke and a column of light on the target, then ARTY_N shells inside ARTY_R over about four seconds.
   strike(c, owner, delay) {
-    const g = this.g, S = { c: c.clone(), owner, team: owner.team, t: delay, k: 0, next: 0, R: ARTY_R, smoke: 0, end: 1.2, mesh: this.pillar(owner.team === 0 ? 0x39e6ff : 0xff4a3a) };
-    S.mesh.position.copy(S.c); this.strikes.push(S);
+    const g = this.g, S = { c: c.clone(), owner, team: owner.team, t: delay, k: 0, next: 0, R: ARTY_R, smoke: 0, end: 1.2, beam: this.beam(c.x, c.y, c.z, 48, 0.5) };
+    this.strikes.push(S);
     g.audio.play('artyIn', S.c, 1.6, 1, 0.4);
     return S;
   }
@@ -121,8 +130,8 @@ export class CallIns {
   }
   dropPod(t) {
     const g = this.g, mesh = this.podMesh();
-    const P = { x: t.x, z: t.z, gy: t.y, y: Math.max(this.topAt(t.x, t.z), t.y) + 60, v: 42, landed: false, t: POD_T, tick: 0, broke: 0, mesh, light: this.pillar(0x7dff8a, 34, 0.14) };
-    mesh.position.set(P.x, P.y, P.z); P.light.position.set(P.x, P.gy, P.z); g.scene.add(mesh);
+    const P = { x: t.x, z: t.z, gy: t.y, y: Math.max(this.topAt(t.x, t.z), t.y) + 60, v: 42, landed: false, t: POD_T, tick: 0, broke: 0, mesh, beam: this.beam(t.x, t.y, t.z, 36, 0.4) };
+    mesh.position.set(P.x, P.y, P.z); g.scene.add(mesh);
     this.pods.push(P); g.audio.play('artyIn', _a.set(P.x, P.gy, P.z), 1.2, 0.8, 0.3);
     return P;
   }
@@ -153,7 +162,7 @@ export class CallIns {
         S.smoke = 0.07; const mine = S.team === 0;
         fx.smoke.emit(S.c.x + rnd(0.4), S.c.y + 0.3, S.c.z + rnd(0.4), rnd(0.7), 1.8 + Math.random(), rnd(0.7), mine ? 0.25 : 1, mine ? 0.85 : 0.28, mine ? 1 : 0.2, 2.2, -0.5, 0.8);
       }
-      S.mesh.material.opacity = 0.2 + 0.14 * Math.sin(g.time * 16);
+      this.lit(S.beam, S.team === 0 ? C_MINE : C_FOE, 0.8 + 0.45 * Math.sin(g.time * 16));     // urgent flicker until the last shell
       if (S.t <= 0 && S.k < ARTY_N) {
         S.next -= dt;
         if (S.next <= 0) {
@@ -163,7 +172,7 @@ export class CallIns {
           if (S.k % 3 === 1) g.audio.play('artyIn', S.c, 0.9, 1.3, 0.3);
           S.k++;
         }
-      } else if (S.k >= ARTY_N && (S.end -= dt) <= 0) { this.unpillar(S.mesh); this.strikes.splice(i, 1); }
+      } else if (S.k >= ARTY_N && (S.end -= dt) <= 0) { this.unbeam(S.beam); this.strikes.splice(i, 1); }
     }
     for (let i = this.shells.length - 1; i >= 0; i--) {
       const s = this.shells[i], y0 = s.y, top = this.topAt(s.x, s.z); s.y -= 115 * dt;
@@ -206,12 +215,12 @@ export class CallIns {
       fx.smoke.emit(P.x + rnd(0.2), P.y + 1.7, P.z + rnd(0.2), rnd(0.5), 3, rnd(0.5), 0.6, 0.6, 0.64, 1.1, -0.2, 1);
       fx.glow.emit(P.x, P.y + 0.1, P.z, 0, 0, 0, 1, 0.7, 0.35, 0.07, 0);
       if (P.y <= P.gy) { P.y = P.gy; this.landPod(P); }
-      P.mesh.position.y = P.y; P.light.material.opacity = 0.2 + 0.12 * Math.sin(g.time * 12);
+      P.mesh.position.y = P.y; this.lit(P.beam, C_POD, 0.75 + 0.35 * Math.sin(g.time * 12));
       return false;
     }
-    P.t -= dt; P.light.material.opacity = (P.t < 4 ? 0.12 : 0.2) + 0.1 * Math.sin(g.time * (P.t < 4 ? 14 : 4));
+    P.t -= dt; this.lit(P.beam, C_POD, (P.t < 4 ? 0.4 : 0.6) + 0.22 * Math.sin(g.time * (P.t < 4 ? 14 : 4)));      // slow breathing; quick blink before it leaves
     // settle again if the floor under it gets destroyed
-    if (!w.get(Math.floor(P.x / VS), Math.floor((P.gy - 0.2) / VS), Math.floor(P.z / VS))) { P.gy = w.groundHeightAt(P.x, P.z, Math.max(0, Math.floor(P.gy / VS))); P.mesh.position.y = P.gy; P.light.position.y = P.gy; }
+    if (!w.get(Math.floor(P.x / VS), Math.floor((P.gy - 0.2) / VS), Math.floor(P.z / VS))) { P.gy = w.groundHeightAt(P.x, P.z, Math.max(0, Math.floor(P.gy / VS))); P.mesh.position.y = P.gy; if (P.beam >= 0) this.beams.setOrigin(P.beam, P.x, P.gy, P.z); }
     // strong supply crate: fast heal, ammunition for every weapon, grenades, gadget charges, a little energy
     const pl = g.player;
     if (pl.alive && g.state === 'play' && g.weapons && (pl.pos.x - P.x) ** 2 + (pl.pos.z - P.z) ** 2 < POD_R * POD_R && Math.abs(pl.pos.y - P.gy) < 3.5) {
@@ -227,12 +236,12 @@ export class CallIns {
       }
     }
     for (const b of g.bots) if (b.alive && b.team === 0 && b.hp < 100 && (b.pos.x - P.x) ** 2 + (b.pos.z - P.z) ** 2 < POD_R * POD_R) b.hp = Math.min(100, b.hp + 30 * dt);
-    if (P.t <= 0) { g.scene.remove(P.mesh); this.unpillar(P.light); return true; }
+    if (P.t <= 0) { g.scene.remove(P.mesh); this.unbeam(P.beam); return true; }
     return false;
   }
   landPod(P) {
     const g = this.g, c = new THREE.Vector3(P.x, P.gy + 0.4, P.z);
-    P.landed = true; P.mesh.position.set(P.x, P.gy, P.z); P.light.position.set(P.x, P.gy, P.z);
+    P.landed = true; P.mesh.position.set(P.x, P.gy, P.z); if (P.beam >= 0) this.beams.setOrigin(P.beam, P.x, P.gy, P.z);
     g.audio.play('land', c, 1.7, 0.7, 0.3); g.audio.play('debris', c, 0.9, 1);
     for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2; g.fx.smoke.emit(P.x + Math.cos(a) * 0.6, P.gy + 0.2, P.z + Math.sin(a) * 0.6, Math.cos(a) * 3.5, 0.6, Math.sin(a) * 3.5, 0.5, 0.5, 0.53, 1.6, -0.2, 1.5); }
     g.trauma = Math.min(1, g.trauma + Math.max(0, 0.7 - g.player.pos.distanceTo(c) / 18));
@@ -245,7 +254,7 @@ export class CallIns {
     g.squads.noise(null, c, 30);
   }
   // The enemy team earns a barrage with its kills. It always targets ground Kappa holds, and it is announced
-  // ENEMY_FUSE seconds before the first shell (toast, radio, red smoke and pillar, red circle on the maps).
+  // ENEMY_FUSE seconds before the first shell (toast, radio, red smoke and column of light, red circle on the maps).
   enemyLogic(dt) {
     const g = this.g; if (g.state !== 'play' || g.countdown > 0) return;
     this.eT += dt; if ((this.pollT -= dt) > 0) return; this.pollT = 1;

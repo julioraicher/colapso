@@ -95,7 +95,7 @@ export class HUD {
       const i = bs.indexOf(document.activeElement); bs[(i + (c === 'ArrowDown' ? 1 : bs.length - 1) + (i < 0 && c === 'ArrowUp' ? 1 : 0)) % bs.length].focus(); e.preventDefault();
     }
   }
-  setMap(on) { this.mapOpen = !!on; setC(E('bigmap'), 'hidden', !on); this.bigT = 0; }
+  setMap(on) { this.mapOpen = !!on; setC(E('bigmap'), 'hidden', !on); this.bigT = 0; this.tunT = 0; }   // (the tunnel hint yields to the open map at once)
   // Called from Game.show(id) so every overlay is filled right before it becomes visible.
   onShow(id) {
     const g = this.g;
@@ -147,6 +147,10 @@ export class HUD {
     E('objs').innerHTML = g.flags.map(f => `<div class="om"><div class="omi"><u></u><div class="omd"></div><b>${f.id}</b><span></span></div></div>`).join('');
     this.objEls = [...E('objs').children].map(el => ({ el, u: el.querySelector('u'), s: el.querySelector('span') }));
     this.tkMax = 1; this.playT = 0; this.dmgDirs.length = 0; this.icId = null; this.setMap(false);
+    // what the mode has for objectives: the big map legend and the first-steps list follow it
+    const hill = g.flags.some(f => f.hill), ob = E('bmlo');
+    setC(ob, 'hidden', !g.flags.length); setT(ob, hill ? '◆ REATOR · ZONA A DOMINAR' : '◆ PONTOS ' + g.flags.map(f => f.id).join(' · '));
+    this.tutCheck();
   }
   buildMinimap() {
     // top-down bake: highest solid voxel colour, shaded by height; emitters glow
@@ -159,10 +163,11 @@ export class HUD {
   }
   bakeMap(x0, z0, x1, z1) {
     x0 = Math.max(0, x0 - 2); z0 = Math.max(0, z0 - 2); x1 = Math.min(SX - 1, x1 + 2); z1 = Math.min(SZ - 1, z1 + 2);
-    const w = this.g.world; const ctx = this.mapX;
+    const v = this.g.world.v, top = this.g.colTop; const ctx = this.mapX;
     const img = ctx.getImageData(x0, z0, x1 - x0 + 1, z1 - z0 + 1); const d = img.data;
     for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
-      let y = SY - 1, m = 0; for (; y >= 0; y--) { m = w.get(x, y, z); if (m && m !== MAT.LEAF) break; }
+      // nothing is solid above the column top the game keeps (colTop), so the scan starts there
+      let y = top ? top[z * SX + x] - 1 : SY - 1, m = 0; for (; y >= 0; y--) { m = v[(y * SZ + z) * SX + x]; if (m && m !== MAT.LEAF) break; }
       const def = MATDEF[m] || MATDEF[MAT.ASPHALT];
       const k = 0.35 + Math.min(1, y / 30) * 0.9;
       const i = ((z - z0) * (x1 - x0 + 1) + (x - x0)) * 4;
@@ -376,8 +381,15 @@ export class HUD {
   }
   tutMark(id) {
     const t = this.tut; if (!t) return; const s = t.find(q => q.id === id); if (!s || s.ok) return;
-    s.ok = true; this.tutN++; $('tu_' + id).classList.add('ok');
-    if (this.tutN >= t.length) { this.tut = null; this.tutHideT = 5; try { localStorage.setItem('colapso.tut', '1'); } catch (e) { /* ignore */ } this.toast('TREINAMENTO CONCLUÍDO · BOA CAÇADA', 0); }
+    s.ok = true; this.tutN++; $('tu_' + id).classList.add('ok'); this.tutCheck();
+  }
+  // "CAPTURE UM PONTO" has no meaning in a mode without objectives (team deathmatch): there the line is hidden and
+  // the list is complete without it.
+  tutCheck() {
+    const t = this.tut; if (!t) return;
+    const cap = t.find(q => q.id === 'cap'), skip = !!cap && !cap.ok && !this.g.flags.length;
+    setC($('tu_cap'), 'hidden', skip); this.tutTot = t.length - (skip ? 1 : 0);
+    if (this.tutN >= this.tutTot) { this.tut = null; this.tutHideT = 5; try { localStorage.setItem('colapso.tut', '1'); } catch (e) { /* ignore */ } this.toast('TREINAMENTO CONCLUÍDO · BOA CAÇADA', 0); }
   }
   tutUpdate(dt, W, active) {
     const g = this.g, show = (!!this.tut || this.tutHideT > 0) && (g.settings.hints || 'always') !== 'never';
@@ -390,7 +402,7 @@ export class HUD {
       if (L.en - g.energy >= 15 && !L.echo && !echo) this.tutMark('tunnel');
       L.id = W.id; L.mag = W.mag; L.en = g.energy; L.echo = echo;
     } else this.tL = { id: W.id, mag: W.mag, en: g.energy, echo };
-    setT(E('tutn'), this.tutN + ' / ' + TUT.length);
+    setT(E('tutn'), this.tutN + ' / ' + (this.tutTot || TUT.length));
   }
   // ---------- per-frame ----------
   update(dt) {
@@ -431,7 +443,7 @@ export class HUD {
       this.tunT = 0.1; const th = E('tunhint'), mk = E('enmark'), abQ = E('abQ'), qs = E('abQs');
       const s = act ? scanTunnel(g.world, p.pos, p.yaw) : null;
       if (s) {
-        setC(th, 'hidden', false); const cost = Math.ceil(s.cost), poor = s.cost > g.energy;
+        setC(th, 'hidden', this.mapOpen); const cost = Math.ceil(s.cost), poor = s.cost > g.energy;
         if (s.exit && s.cost <= 100) { setH(th, `${kc('Q')}ATRAVESSAR · d=${s.d.toFixed(1)} m · T=${s.T.toFixed(2)} · custo ${cost}`); setC(th, 'no', poor); setC(mk, 'hidden', false); setS(mk, 'left', Math.min(100, cost) + '%'); setT(qs, poor ? `SEM ENERGIA (${cost})` : 'CUSTO ' + cost); setC(abQ, 'off', poor); }
         else { setH(th, `${kc('Q')}BARREIRA ESPESSA · T≈0`); setC(th, 'no', true); setC(mk, 'hidden', true); setT(qs, 'PAREDE ESPESSA'); setC(abQ, 'off', true); }
       } else { setC(th, 'hidden', true); setC(mk, 'hidden', true); const ok = act && g.energy >= 18; setC(abQ, 'off', !ok); setT(qs, !act ? 'INDISPONÍVEL' : ok ? 'AVANÇO · CUSTO 18' : 'SEM ENERGIA (18)'); }   // never "ready" while dead
