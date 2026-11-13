@@ -246,17 +246,18 @@ class Game {
   pause() { this.state = 'pause'; this.show('pause'); this.mouse.l = false; }
   resume() { this.state = 'play'; this.show(null); this.lock(); }
   show(id, keep) {
-    for (const k of ['menu', 'how', 'opts', 'pause', 'deploy', 'end', 'score']) $(k).classList.toggle('hidden', k !== id);
+    for (const k of ['menu', 'how', 'opts', 'pause', 'deploy', 'end', 'score', 'keys']) $(k).classList.toggle('hidden', k !== id);
     if (id === 'menu') $('hud').classList.add('hidden');
+    this.hud.onShow(id);
   }
   bindUI() {
     const back = () => this.show(this.state === 'pause' ? 'pause' : 'menu');
     $('bPlay').onclick = () => { this.audio.init(); this.startMatch(); };
     $('bHow').onclick = () => this.show('how'); $('bHowBack').onclick = back;
     const DIFFS = [['RECRUTA', 0.7], ['VETERANO', 1], ['ELITE', 1.3]];
-    const setDiff = (i) => { this.settings.diff = i; this.diffMul = DIFFS[i][1]; $('bDiff').textContent = 'DIFICULDADE: ' + DIFFS[i][0]; this.saveSettings(); };
+    const setDiff = (i) => { i = DIFFS[i] ? i : 1; this.settings.diff = i; this.diffMul = DIFFS[i][1]; this.hud.setDiff(i); this.saveSettings(); };
     setDiff(this.settings.diff ?? 1);
-    $('bDiff').onclick = () => setDiff(((this.settings.diff ?? 1) + 1) % 3);
+    for (const el of document.querySelectorAll('[data-diff]')) el.onclick = () => setDiff(+el.dataset.diff);
     this.updateMenuRank();
     $('bOpt').onclick = () => { this.hud.fillOpts(); this.show('opts'); }; $('bOptBack').onclick = back;
     $('bQuit').onclick = () => { if (window.close) window.close(); };
