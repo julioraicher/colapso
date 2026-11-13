@@ -12,7 +12,7 @@ const ease = (t) => t < 0 ? 0 : t > 1 ? 1 : t * t * (3 - 2 * t);
 const seg = (t, a, b) => ease((t - a) / (b - a));
 const bump = (t, a, b, c, d) => seg(t, a, b) * (1 - seg(t, c, d));   // 0 -> 1 (a..b) -> 0 (c..d)
 const UP = new THREE.Vector3(0, 1, 0), Z3 = [0, 0, 0];
-const HIP = [0.14, -0.15, -0.42], MAG_OUT = [-0.03, -0.34, 0.02, -0.25, 0], EJECT = [0.03, 0.02, -0.04], R_HOLD = { p: [0, -0.047, 0.088], rake: -0.3 };
+const HIP = [0.13, -0.145, -0.42], MAG_OUT = [-0.03, -0.34, 0.02, -0.25, 0], EJECT = [0.03, 0.02, -0.04], R_HOLD = { p: [0, -0.047, 0.088], rake: -0.3 }, PORT = [0, -0.034, -0.03];
 const PARTS = ['mag', 'cover', 'cyl', 'rocket'], ALL = ['mag', 'bolt', 'cover', 'cyl', 'rocket', 'pump', 'shell'];
 const PUMP = 0.5, INSPECT = 2.5, MELEE = 0.5;
 // Sprint carry per family: [dx, dy, dz, rx, ry, rz]
@@ -110,6 +110,7 @@ export class Viewmodel {
     this.foreL.visible = !!U.lh;
     this.pumpT = 0; this.inspectT = 0; this.meleeT = 0; this.casePending = false; this.dumped = false; this.cylA = this.cylTo = 0;
     if (this.kn) this.kn.visible = false;
+    this.flashT = 0; this.flash.intensity = 0; this.mflash.visible = false;
     this.pc.fill(0); this.resetParts();
   }
   resetParts() {
@@ -223,7 +224,7 @@ export class Viewmodel {
       }
     } else if (style === 'shell') {           // one shell per cycle: carried up on the fingertips, thumbed into the loading port
       T[0] = 0.2; T[1] = 0.14; T[2] = -0.85; T[3] = -0.02; T[4] = 0.05;
-      const S = U.shell, pt = U.port || [0, -0.034, -0.03], cy = U.carry;
+      const S = U.shell, pt = U.port || PORT, cy = U.carry;
       if (S && L) {
         const push = seg(t, 0.54, 0.74);
         v.set(pt[0] - 0.02, pt[1] - 0.26, pt[2] + 0.07).lerp(w.set(pt[0], pt[1] - 0.014, pt[2] + 0.03), seg(t, 0.06, 0.5));

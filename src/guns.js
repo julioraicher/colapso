@@ -275,7 +275,7 @@ function martelo(c, k, D) {
     if (D) p.mirror(() => p.box(.003, .008, .16, .013, .004, .15, STL));       // action bars
   });
   c.part('shell', 0, 0, 0, s => { s.cyl('z', .0095, .046, 0, 0, -.006, RED, 6); s.cyl('z', .0102, .012, 0, 0, .023, BRS, 6); });
-  k.tube('z', .011, .0065, .012, 0, .046, .075, PARK, 8); k.box(.014, .012, .02, 0, .033, .075, PARK);   // ghost ring
+  k.tube('z', .0125, .0095, .008, 0, .046, .075, PARK, 8); k.box(.01, .008, .016, 0, .0315, .075, PARK);   // ghost ring
   fpost(k, .0255, .046, -.585, D, PARK, 0xff5a2a);
   if (!D) k.box(.008, .05, .1, -.025, .0, .0, RED);
   if (D) {
@@ -468,7 +468,7 @@ function orion(c, k, D) {
 
 // VIGIA 7.62: walnut-stocked light bolt rifle, blued tapered barrel, slim 5x scope, cartridge loops, flush magazine.
 function vigia(c, k, D) {
-  const BL = st(T.blued, PAL.blued), CHK = st(T.grip, PAL.woodDark);
+  const BL = st(T.blued, 0x5a5d68), CHK = st(T.grip, PAL.woodDark);
   k.box(.04, .04, .4, 0, -.014, -.22, WOOD);                                  // fore-end
   k.taper(.04, .04, .05, 0, -.014, -.445, '-z', [.6, .55], WOODD, 0, [0, .004]);   // ebony tip
   k.box(.042, .052, .17, 0, -.014, .06, WOOD);                                // action bedding
@@ -546,8 +546,8 @@ function juiz(c, k, D) {
   k.box(.01, .01, .17, 0, .073, -.172, st(T.vent, PAL.steel));                // vent rib
   pgrip(k, .0, .055, D, { w: .032, h: .105, d: .048, rake: -.38, body: WOOD, side: st(T.grip, PAL.woodDark) });
   trig(k, -.003, -.005, D, .05, SS);
-  k.box(.006, .012, .03, 0, .084, -.24, SS);                                  // ramp front sight
-  rnotch(k, .0785, .09, .045, D, SSD);
+  k.box(.006, .012, .03, 0, .084, -.24, GM);                                  // ramp front sight
+  rnotch(k, .0785, .09, .045, D, GM, PAL.white);
   c.part('cyl', 0, .04, -.018, y => {
     y.cyl('z', .026, .06, 0, 0, 0, SS, 12);
     if (!D) return;
@@ -662,7 +662,7 @@ for (const s of ['K-7', 'ARCO B-9', 'VESPA', 'FAISCA', 'MARTELO 12', '100', 'M-1
  */
 export function buildGun(type, opts = {}) {
   const id = MODELS[opts.id] ? opts.id : BY_TYPE[type] || 'k7', fp = opts.lod !== 'tp';
-  const g = new THREE.Group(), U = g.userData, k = new Kit(fp ? 96 : 64);
+  const g = new THREE.Group(), U = g.userData, k = fp ? new Kit(96) : new Kit(64, { glow: .1 });   // bots' guns stay readable in the dark
   const c = {
     // Animated part: its own mesh in first person, baked into the body for the third-person LOD.
     part(name, x, y, z, fn) {
@@ -679,7 +679,7 @@ export function buildGun(type, opts = {}) {
 }
 
 // ---- first-person gloves and forearms -----------------------------------------------------------
-const GLV = st(T.fabric, 0x857f68), PAD = st(T.carbon, 0x4a4947), CUF = st(T.ribs, 0x3a3936, { turn: 1 }), SLV = st(T.ripstop, 0x5d5b55), PALM = st(T.leather, 0x5e4c3a);
+const GLV = st(T.fabric, 0x857f68, { edge: 1 }), PAD = st(T.carbon, 0x4a4947), CUF = st(T.ribs, 0x3a3936, { turn: 1 }), SLV = st(T.ripstop, 0x5d5b55), PALM = st(T.leather, 0x5e4c3a);
 // Hand wrapped around a grip (w wide, d deep). Origin = top centre of the gripped section, fingers stacked downward.
 // side +1 = right hand (palm on +X), -1 = left. trigger: index finger laid along the frame. fwd: support hand closed over
 // the firing hand, thumb forward. stock: the fist lies along a straight stock wrist (hollow along +Z, thumb over the top).

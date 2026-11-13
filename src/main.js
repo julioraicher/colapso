@@ -215,6 +215,7 @@ class Game {
         return;
       }
       if (e.code === 'KeyR') this.startReload();
+      if (e.code === 'KeyB') this.vm.inspect();
       if (e.code === 'Digit1' && this.slot !== 'primary') this.setWeapon('primary');
       if (e.code === 'Digit2' && this.slot !== 'secondary') this.setWeapon('secondary');
       if (e.code === 'KeyG') this.playerGrenade();
