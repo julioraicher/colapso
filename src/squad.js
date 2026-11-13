@@ -20,7 +20,7 @@ function paint(geo, col) {
 }
 
 export class Squads {
-  constructor(g) { this.g = g; this.list = []; this.intel = [[], []]; this.cd = {}; this.lastSay = -9; this.vcache = new Map(); this.crates = []; }
+  constructor(g) { this.g = g; this.list = []; this.intel = [[], []]; this.cd = {}; this.lastSay = -9; this.vcache = new Map(); this.crates = []; this.tally = { rockets: [0, 0], crates: [0, 0], dashes: 0, strikes: 0, radio: 0 }; }
   // One unlit, vertex-coloured mesh per crate (team light strip on top); a hidden prototype is compiled at load time.
   warm() {
     const mk = (glow) => mergeGeometries([paint(new THREE.BoxGeometry(0.6, 0.35, 0.4), 0x4a5c4a), paint(new THREE.BoxGeometry(0.62, 0.06, 0.42).translate(0, 0.12, 0), glow)]);
@@ -30,7 +30,7 @@ export class Squads {
   reset() {
     const g = this.g;
     for (const c of this.crates) g.scene.remove(c.mesh);
-    this.list = []; this.intel = [[], []]; this.cd = {}; this.lastSay = -9; this.vcache.clear(); this.crates = [];
+    this.list = []; this.intel = [[], []]; this.cd = {}; this.lastSay = -9; this.vcache.clear(); this.crates = []; this.tally = { rockets: [0, 0], crates: [0, 0], dashes: 0, strikes: 0, radio: 0 };   // behaviour counters, read by the tests
     for (const team of [0, 1]) {
       const bots = g.bots.filter(b => b.team === team).sort((a, b) => RANK[a.cls] - RANK[b.cls]);
       const n = Math.max(1, Math.ceil(bots.length / 3)), sq = [];
@@ -157,7 +157,7 @@ export class Squads {
     if (!b || b.team !== 0 || g.state !== 'play' || g.countdown > 0) return false;
     if (now - this.lastSay < 5 || now < (this.cd[kind] || 0)) return false;
     if (local && g.player.pos.distanceToSquared(b.pos) > 45 * 45) return false;
-    this.lastSay = now; this.cd[kind] = now + cd;
+    this.lastSay = now; this.cd[kind] = now + cd; this.tally.radio++;
     g.hud.radio(b.name.toUpperCase(), text); g.audio.play('radio', null, 0.3);
     return true;
   }
@@ -165,7 +165,7 @@ export class Squads {
   dropCrate(b) {
     const g = this.g, mesh = new THREE.Mesh(this.crateGeo[b.team], this.crateMat), fx = -Math.sin(b.yaw), fz = -Math.cos(b.yaw);
     const p = new THREE.Vector3(b.pos.x + fx * 0.6, b.pos.y + 1.0, b.pos.z + fz * 0.6);
-    g.scene.add(mesh); g.audio.play('pin', p, 0.5, 0.6);
+    g.scene.add(mesh); g.audio.play('pin', p, 0.5, 0.6); this.tally.crates[b.team]++;
     if (b.team === 0) { mesh.position.copy(p); g.gadgets.push({ kind: 'crate', p, v: new THREE.Vector3(fx * 2.5, 2, fz * 2.5), mesh, t: 30, landed: false }); return; }
     p.set(b.pos.x + fx * 0.9, 0, b.pos.z + fz * 0.9); p.y = g.world.groundHeightAt(p.x, p.z, Math.floor((b.pos.y + 0.9) / VS)) + 0.18;
     mesh.position.copy(p); this.crates.push({ p, mesh, t: 30 });
@@ -179,7 +179,7 @@ export class Squads {
     b.dashCd = now + 4;                                                   // do not rescan on every think
     const yaw = Math.atan2(-dx, -dz), s = scanTunnel(g.world, b.pos, yaw);
     if (!s || !s.exit || s.d > 1.3 || g.nav.heightAt(s.exit) === null) return false;
-    b.dash = { t: 0, tele: 0.8, from: b.pos.clone(), to: s.exit.clone(), yaw, fx: 0 }; b.dashCd = now + 25 + Math.random() * 15;
+    b.dash = { t: 0, tele: 0.8, from: b.pos.clone(), to: s.exit.clone(), yaw, fx: 0 }; b.dashCd = now + 25 + Math.random() * 15; this.tally.dashes++;
     g.audio.play('ability', b.pos, 1.2, 0.75, 0.3);
     return true;
   }

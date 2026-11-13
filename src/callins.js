@@ -253,7 +253,7 @@ export class CallIns {
     const z = this.enemyTarget(); if (!z) { this.pollT = 5; return; }
     this.eT = 0; this.eKills = k;
     const c = new THREE.Vector3(z.x, 0, z.z); c.y = g.nav.heightAt(c) ?? g.world.groundHeightAt(c.x, c.z, 12);
-    this.battery.pos.copy(c); this.strike(c, this.battery, ENEMY_FUSE);
+    this.battery.pos.copy(c); this.strike(c, this.battery, ENEMY_FUSE); this.g.squads.tally.strikes++;
     g.hud.toast('ARTILHARIA INIMIGA · ' + z.toast, 0, true); g.hud.radio('COMANDO', `Artilharia Ômega mirando ${z.where}. Saiam daí!`); g.audio.play('radio', null, 0.5);
   }
   enemyTarget() {

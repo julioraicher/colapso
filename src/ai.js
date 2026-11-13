@@ -164,7 +164,7 @@ export class Bot {
       // engineer: shoulders the launcher and holds still before firing (the wind-up is the warning)
       const a = this.rpgAim; moving = false; this.aimHold = 1.4;
       this.yaw = lerpAngle(this.yaw, Math.atan2(-(a.x - this.pos.x), -(a.z - this.pos.z)), Math.min(1, dt * 9));
-      if ((this.rpgT -= dt) <= 0) { this.rockets--; g.fireBullet(this, this.muzzleWorld(), a, WEAPONS.rpg, 0.01 / this.skill); this.cool = 0.9; this.react = Math.max(this.react, 0.4); }
+      if ((this.rpgT -= dt) <= 0) { this.rockets--; g.squads.tally.rockets[this.team]++; g.fireBullet(this, this.muzzleWorld(), a, WEAPONS.rpg, 0.01 / this.skill); this.cool = 0.9; this.react = Math.max(this.react, 0.4); }
     } else if (see) {
       const tp = T.isPlayer ? T.chestPos() : T.chest, eye = this.eye, H = this.hand;
       const dx = tp.x - eye.x, dz = tp.z - eye.z, d = eye.distanceTo(tp);
