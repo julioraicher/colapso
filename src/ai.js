@@ -2,7 +2,8 @@
 // and settling error, objective logic for Conquest, grenade use against cover.
 import * as THREE from 'three';
 import { VS, SX, SZ, SY } from './world.js';
-import { lam, box, buildGun, WEAPONS, PRIMARIES, flatten } from './weapons.js';
+import { WEAPONS, PRIMARIES } from './weapons.js';
+import { buildSoldier } from './soldier.js';
 import { G } from './mapgen.js';
 
 export const NC = 1.0;                 // nav cell size (m)
@@ -74,37 +75,9 @@ export class Nav {
 }
 
 // ---------- Soldier model ----------
-const TEAMCOL = [{ body: 0x46566a, dark: 0x252c36, visor: 0x39e6ff }, { body: 0x5a4a3e, dark: 0x2a221d, visor: 0xff8a2a }];
-export function buildSoldier(team, gunType) {
-  const c = TEAMCOL[team];
-  const root = new THREE.Group();
-  const body = lam(c.body), dark = lam(c.dark), visor = lam(c.visor, 1.6);
-  const hips = new THREE.Group(); hips.position.y = 0.9; root.add(hips);
-  const torso = new THREE.Group(); hips.add(torso);
-  box(torso, 0.44, 0.55, 0.26, 0, 0.3, 0, body);
-  box(torso, 0.46, 0.3, 0.3, 0, 0.36, 0.0, dark);        // vest
-  box(torso, 0.1, 0.06, 0.02, 0.12, 0.42, -0.16, visor);  // chest light (team readability)
-  const head = new THREE.Group(); head.position.y = 0.72; torso.add(head);
-  box(head, 0.24, 0.26, 0.26, 0, 0, 0, dark);
-  box(head, 0.2, 0.07, 0.04, 0, 0.02, -0.13, visor);
-  box(head, 0.28, 0.08, 0.3, 0, 0.13, 0, body);           // helmet rim
-  const legs = [];
-  for (const sx of [-0.12, 0.12]) {
-    const leg = new THREE.Group(); leg.position.set(sx, 0, 0); hips.add(leg);
-    box(leg, 0.16, 0.48, 0.18, 0, -0.24, 0, dark);
-    const shin = new THREE.Group(); shin.position.y = -0.48; leg.add(shin);
-    box(shin, 0.15, 0.44, 0.17, 0, -0.2, 0, body);
-    box(shin, 0.16, 0.08, 0.26, 0, -0.42, -0.04, dark);
-    legs.push({ leg, shin });
-  }
-  const arms = new THREE.Group(); arms.position.set(0, 0.45, 0); torso.add(arms);
-  box(arms, 0.12, 0.12, 0.38, 0.22, -0.02, -0.12, body, 0.2);
-  box(arms, 0.12, 0.12, 0.42, -0.16, -0.04, -0.26, body, 0.4);
-  const gun = buildGun(gunType, { accent: c.visor }); gun.scale.setScalar(1.15); gun.position.set(0.05, 0.02, -0.38); arms.add(gun);
-  root.userData = { hips, torso, head, legs, arms, gun };
-  flatten(root);
-  return root;
-}
+// Rigged, animated soldiers live in soldier.js; a Bot owns one (this.soldier) and shows its root as this.model.
+export { buildSoldier };
+let BOTS = [];
 
 let _mk = null;
 function MARKER() {
@@ -121,7 +94,8 @@ export class Bot {
     this.g = game; this.team = team; this.name = NAMES[nameI++ % NAMES.length] + '-' + (10 + Math.random() * 89 | 0);
     const wid = PRIMARIES[Math.random() * PRIMARIES.length | 0];
     this.wid = wid; this.wdef = WEAPONS[wid];
-    this.model = buildSoldier(team, this.wdef.type); game.scene.add(this.model);
+    BOTS = BOTS.filter(b => b.model.parent || (b.soldier.dispose(), false)); BOTS.push(this);   // frees the soldiers of a finished match
+    this.soldier = buildSoldier({ team, weaponId: wid, seed: this.name, world: game.world }); this.model = this.soldier.root; game.scene.add(this.model);
     if (team === 1) { this.marker = new THREE.Sprite(MARKER()); this.marker.scale.set(0.45, 0.45, 1); this.marker.position.y = 2.3; this.marker.visible = false; this.model.add(this.marker); }
     this.pos = new THREE.Vector3(); this.yaw = 0; this.alive = false; this.hp = 100;
     this.path = null; this.pi = 0; this.repath = 0; this.target = null; this.seeT = 0; this.lastSeen = null; this.lastSeenT = -99;
@@ -135,11 +109,11 @@ export class Bot {
   get chest() { return new THREE.Vector3(this.pos.x, this.pos.y + 1.25, this.pos.z); }
   spawnAt(p) {
     this.pos.copy(p); this.alive = true; this.hp = 100; this.ammo = this.wdef.mag; this.reloadT = 0;
-    this.model.visible = true; this.model.rotation.set(0, 0, 0); this.path = null; this.target = null; this.goal = null; this.react = 0.5;
+    this.model.visible = true; this.soldier.respawn(); this.lastAnim = null; this.lastHit = null; this.aimHold = 0; this.path = null; this.target = null; this.goal = null; this.react = 0.5;
   }
-  hurt(d, now, from) {
+  hurt(d, now, from, info) {
     if (!this.alive) return;
-    this.hp -= d; this.suppress = Math.min(1, this.suppress + 0.4); this.flinch = 1;
+    this.hp -= d; this.suppress = Math.min(1, this.suppress + 0.4); this.flinch = 1; this.onHit(d, from, info);
     if (from && from.alive && (!this.target || !this.target.alive || Math.random() < 0.5)) { this.lastSeen = from.pos.clone(); this.lastSeenT = now; this.alertBy = from; }
     if (this.hp <= 0) { this.hp = 0; this.alive = false; this.deadT = 0; this.respawnT = 7; this.deaths++; }
   }
@@ -147,11 +121,8 @@ export class Bot {
     const g = this.g, m = this.model, U = m.userData;
     if (!this.alive) {
       this.deadT += dt;
-      // fall over (simple procedural "ragdoll")
-      const t = Math.min(1, this.deadT / 0.45);
-      m.rotation.x = -t * t * Math.PI / 2 * (this.fallDir || 1);
-      m.position.y = this.pos.y + Math.sin(t * Math.PI) * 0.15 - t * 0.1;
-      if (this.deadT > 4) m.visible = false;
+      // scripted death with weight (soldier.js): the body lies for about 6 s, then sinks and hides itself
+      if (m.visible) { if (!this.soldier.dead) this.fall(); this.soldier.update(dt, null); }
       this.respawnT -= dt;
       if (this.respawnT <= 0 && g.state === 'play') { const sp = g.spawnPointFor(this.team, this); if (sp) this.spawnAt(sp); }
       return;
@@ -212,19 +183,36 @@ export class Bot {
     const spd = Math.hypot(vx, vz);
     this.walk += spd * dt * 2.4;
     if (spd > 1 && Math.floor(this.walk / Math.PI) !== this.lastStep) { this.lastStep = Math.floor(this.walk / Math.PI); if (g.player.pos.distanceTo(this.pos) < 18) g.audio.play('step', this.pos, this.team === 1 ? 0.9 : 0.5, 0.85); }
-    const sw = Math.sin(this.walk) * Math.min(1, spd / 3) * 0.7;
-    U.legs[0].leg.rotation.x = sw; U.legs[1].leg.rotation.x = -sw;
-    U.legs[0].shin.rotation.x = Math.max(0, -sw) * 1.2; U.legs[1].shin.rotation.x = Math.max(0, sw) * 1.2;
-    U.hips.position.y = (this.crouch ? 0.6 : 0.9) + Math.abs(Math.cos(this.walk)) * 0.04 * Math.min(1, spd / 3);
-    if (this.crouch) { U.legs[0].leg.rotation.x = -1.2; U.legs[0].shin.rotation.x = 1.9; U.legs[1].leg.rotation.x = -0.3; U.legs[1].shin.rotation.x = 1.5; }
-    let pitch = 0; if (T && this.seeT > 0) { const tp = T.isPlayer ? T.chestPos() : T.chest; pitch = Math.atan2(tp.y - this.eye.y, Math.hypot(tp.x - this.pos.x, tp.z - this.pos.z)); }
+    let pitch = 0; if (T && this.seeT > 0) { const tp = T.isPlayer ? T.chestPos() : T.chest; pitch = Math.atan2(tp.y - this.eye.y, Math.hypot(tp.x - this.pos.x, tp.z - this.pos.z)); this.aimHold = 1.4; } else this.aimHold = (this.aimHold || 0) - dt;
     this.flinch = Math.max(0, (this.flinch || 0) - dt * 6);
-    U.arms.rotation.x = pitch + this.flinch * 0.35; U.head.rotation.x = pitch * 0.6 - this.flinch * 0.3; U.torso.rotation.x = -this.flinch * 0.15;
-    m.position.copy(this.pos); m.rotation.set(0, this.yaw, 0);
-    // recoil twitch
-    U.gun.position.z = -0.38 + Math.max(0, this.cool - 60 / this.wdef.rpm * 0.5) * 0.0;
+    // the soldier animates itself from what the body really did (blocked bots do not walk on the spot)
+    const S = this.pose || (this.pose = { pos: this.pos, alive: true }), lp = this.lastAnim || (this.lastAnim = this.pos.clone()), idt = dt > 1e-4 ? 1 / dt : 0;
+    S.yaw = this.yaw; S.vx = (this.pos.x - lp.x) * idt; S.vz = (this.pos.z - lp.z) * idt; lp.copy(this.pos);
+    S.crouch = this.crouch; S.aiming = this.aimHold > 0; S.aimPitch = pitch; S.ammo = this.ammo;
+    S.reload01 = this.reloadT > 0 ? 1 - this.reloadT / (this.wdef.reload * (this.wdef.perShell ? 4 : 1)) : -1;
+    this.soldier.world = g.world; this.soldier.update(dt, S);
   }
-  muzzleWorld() { const p = new THREE.Vector3(); this.model.userData.gun.userData.muzzle.getWorldPosition(p); return p; }
+  muzzleWorld() { return this.soldier.muzzleWorld(); }
+  // model side of a hit: directional flinch, and what the death animation needs to know about the last hit.
+  // info (optional 4th argument of hurt): { head: bool } for bullets, { blast: Vector3 centre } for explosions.
+  onHit(d, from, info) {
+    const c = (info && info.blast && info.blast.isVector3 && info.blast) || (from && from.pos); let dx = 0, dz = 0;
+    if (c) { dx = this.pos.x - c.x; dz = this.pos.z - c.z; }
+    this.soldier.hit(dx, dz, Math.min(1.2, 0.35 + d / 60));
+    this.lastHit = { dx, dz, blast: !!(info && info.blast), head: !!(info && info.head), power: d };
+  }
+  // start the death animation: pushed away from the last hit, as far as level ground goes
+  fall() {
+    const h = this.lastHit || {}, w = this.g.world, p = this.pos, l = Math.hypot(h.dx || 0, h.dz || 0); let room = 3.5;
+    if (l > 1e-3) {
+      const ux = h.dx / l, uz = h.dz / l, vy = Math.floor((p.y + 0.6) / VS);
+      for (let s = 0.5; s <= 3.5; s += 0.5) {
+        const x = p.x + ux * s, z = p.z + uz * s;
+        if (w.boxHits(x - 0.25, p.y + 0.3, z - 0.25, x + 0.25, p.y + 1.1, z + 0.25) || Math.abs(w.groundHeightAt(x, z, vy) - p.y) > 0.3) { room = s - 0.4; break; }
+      }
+    }
+    this.soldier.die({ dx: h.dx, dz: h.dz, blast: h.blast, head: h.head, power: h.power, room }); this.lastHit = null;
+  }
   tryMove(dx, dz) {
     const w = this.g.world, p = this.pos, r = 0.3, h = this.crouch ? 1.2 : 1.75;
     const hit = (x, y, z) => w.boxHits(x - r, y + 0.05, z - r, x + r, y + h, z + r);

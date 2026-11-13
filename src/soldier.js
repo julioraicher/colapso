@@ -27,7 +27,7 @@
 // A gun may carry userData.hold = { grip, sup, butt, mag } (points in gun space, metres) to override HOLD below.
 import * as THREE from 'three';
 import { Kit, TILE, PAL, kitMaterial } from './kit.js';
-import { buildGun, WEAPONS, flatten } from './weapons.js';
+import { buildGun, WEAPONS } from './weapons.js';
 
 // ---- skeleton --------------------------------------------------------------------------------
 const HIPS = 0, SPINE = 1, CHEST = 2, HEAD = 3, ARM_R = 4, FORE_R = 5, HAND_R = 6, ARM_L = 7, FORE_L = 8, HAND_L = 9,
@@ -39,6 +39,7 @@ const JOINT = [[0, .98, 0], [0, 1.1, 0], [0, 1.26, 0], [0, 1.5, .01], [.235, 1.4
   [.1, .94, 0], [.1, .5, 0], [.1, .08, 0], [-.1, .94, 0], [-.1, .5, 0], [-.1, .08, 0], [0, 1.66, 0]];
 const L_ARM1 = .3, L_ARM2 = .27, L_LEG1 = .44, L_LEG2 = .42;
 const GS = 1.04;                                   // third-person gun scale
+const AMB = .1;                                    // self-lit share of every surface: keeps the factions' colours readable at night
 const FIST = new THREE.Vector3(0, -.063, -.004);   // fist centre in hand space
 const XA = new THREE.Vector3(1, 0, 0), ZA = new THREE.Vector3(0, 0, 1);
 const Q_GRIP_R = new THREE.Quaternion().setFromAxisAngle(XA, 1.77);                                   // hand relative to the gun
@@ -73,11 +74,11 @@ const WHITE = { tint: 0xffffff, glow: .35 };
 const FAC = [
   { // KAPPA, institute security
     accent: PAL.kappa, glyph: TILE.kappa,
-    uni: C('camo', 0x55699c), legs: [C('camo', 0x47577f), C('camo', 0x4d5c7a), C('ripstop', 0x424e6c)],
-    gear: C('molle', 0x5d626e), pouch: C('fabric', 0x52565f), pack: C('ripstop', 0x4a4f5c), roll: C('fabric', 0x3d4a66),
-    helm: C('polymer', 0x525d76), cap: C('fabric', 0x3f4a66), beanie: [0x34394a, 0x3a4664, 0x2c2e36], mask: C('fabric', 0x2c2f3a),
-    pad: C('polymer', 0x3a3b40), belt: C('polymer', 0x33343a), strap: C('flat', 0x30323a), boot: C('leather', 0x3b3937), sole: C('tread', 0x242426),
-    glove: C('grip', 0x44464c), patch: C('flat', 0x2b3550), tube: C('metal', 0x5a6272), nade: C('metal', 0x4d5648), med: C('fabric', 0xb9bcc0),
+    uni: C('camo', 0x6a779c), legs: [C('camo', 0x5a6688), C('camo', 0x626c86), C('ripstop', 0x545f7c)],
+    gear: C('molle', 0x676a72), pouch: C('fabric', 0x5c5f66), pack: C('ripstop', 0x565a64), roll: C('fabric', 0x4a5670),
+    helm: C('polymer', 0x5e6880), cap: C('fabric', 0x4a5572), beanie: [0x3e4456, 0x45516e, 0x35373f], mask: C('fabric', 0x33363f),
+    pad: C('polymer', 0x44464c), belt: C('polymer', 0x3c3d44), strap: C('flat', 0x393b44), boot: C('leather', 0x45423f), sole: C('tread', 0x2a2a2c),
+    glove: C('grip', 0x4e5056), patch: C('flat', 0x2b3550), tube: C('metal', 0x687080), nade: C('metal', 0x566050), med: C('fabric', 0xc4c7cb),
     lens: C('glass', 0x7fe9ff, { glow: .8 }), light: C('flat', PAL.kappa, { glow: 2, edge: 0 }), ink: { tint: PAL.kappa, glow: .9 },
     scarf: [0x2f3648, 0x3a4664], strips: [0x3d4862, 0x56617c, 0x2f3646, 0x6a7692], cape: C('fabric', 0x414c66),
   },
@@ -97,7 +98,7 @@ const FAC = [
 function makeLook(team, cls, seed) {
   const r = rng((seed ^ (team * 0x51ed27 + 0x2f6e2b1)) >>> 0), pick = a => a[r() * a.length | 0];
   const L = { team, cls, seed };
-  L.h = .96 + r() * .08;                                                                     // height
+  L.h = .955 + r() * .075;                                                                     // height
   L.w = (.94 + r() * .13) * (cls === 'suporte' ? 1.06 : cls === 'recon' ? .96 : 1);          // build
   L.skin = r() * 5 | 0;
   L.head = cls === 'recon' ? (r() < .7 ? 'hood' : pick(['beanie', 'cap'])) : cls === 'suporte' ? pick(['helmet', 'helmet', 'goggles'])
@@ -119,9 +120,9 @@ function makeLook(team, cls, seed) {
 
 /** The whole body as kit primitives in the bind pose, one bone per primitive. */
 function buildBody(L) {
-  const k = new Kit(40), T = L.team, F = FAC[T], W = L.w, cls = L.cls, X = L.extra;
+  const k = new Kit(40, { glow: AMB }), T = L.team, F = FAC[T], W = L.w, cls = L.cls, X = L.extra;
   const r = rng(L.seed ^ 0x9e3779b9), rnd = (a, b) => a + r() * (b - a), pick = a => a[r() * a.length | 0];
-  const sk = { tile: TILE.skin, tint: PAL.skin[L.skin], glow: .14 }, skD = { tile: TILE.skin, tint: shade(PAL.skin[L.skin], .7), glow: .1 };
+  const sk = { tile: TILE.skin, tint: PAL.skin[L.skin], glow: .2 }, skD = { tile: TILE.skin, tint: shade(PAL.skin[L.skin], .7), glow: .16 };
   const hair = { tile: TILE.fabric, tint: L.hair }, eye = { tile: TILE.flat, tint: 0x16120f, edge: 0 };
   const steel = { tile: TILE.metal, tint: PAL.steel }, dark = { tile: TILE.blued, tint: 0x4a4a4c };
   const uni = F.uni, legs = F.legs[L.legs], slim = cls === 'recon', heavy = cls === 'suporte';
@@ -184,6 +185,10 @@ function buildBody(L) {
     fz = -cz - pd + .008; bz = cz + pd - .008;
   }
   k.mirror(() => k.box(.062, .03, .226 * W + .06, .105, 1.517, 0, F.strap));
+  if (T === 0 || heavy) k.mirror(() => {   // shoulder armour stays with the torso and hides the joint
+    k.taper(.138 * W, .09, .162 * W, .25, 1.455, 0, '+y', [.72, .8], F.gear);
+    if (T === 0) k.box(.014, .034, .056, .25 + .069 * W + .004, 1.44, 0, F.light);
+  });
   for (let i = 0, n = L.mags, x0 = -(n - 1) * .0445; i < n; i++) { const x = x0 + i * .089; k.box(.08, .135, .05, x, 1.255, fz - .025, F.pouch).box(.054, .04, .028, x, 1.335, fz - .022, dark).box(.084, .028, .054, x, 1.3, fz - .025, F.strap); }
   k.box(.15, .075, .028, 0, 1.432, fz - .014, F.pouch).decal(F.glyph, .06, .06, .04, 1.432, fz - .0285, '-z', F.ink);
   k.box(.056, .022, .006, -.035, 1.436, fz - .03, { tile: TILE.flat, tint: 0xd9d5c9, edge: 0 });                  // name tape
@@ -282,8 +287,7 @@ function buildBody(L) {
     k.taper(.126 * W, .075, .136 * W, .235, 1.442, 0, '+y', [.7, .8], uni);
     k.taper(.114 * W, .32, .124 * W, .235, 1.285, 0, '-y', .88, uni);
     k.box(.01, .085, .085, ox, 1.335, 0, F.patch).decal(F.glyph, .07, .07, ox + .0055, 1.335, 0, '+x', F.ink);       // shoulder patch
-    if (T === 0 || heavy) k.taper(.13 * W, .1, .15 * W, .25, 1.405, 0, '-y', [.82, .84], F.gear);                 // pauldron
-    k.box(.014, .034, .05, (T === 0 || heavy ? .25 + .065 * W : ox) + .004, T === 0 ? 1.41 : 1.245, 0, F.light);  // side light
+    if (T === 1) k.box(.014, .034, .05, ox + .004, 1.245, 0, F.light);                                            // arm light
     if (slim) for (let i = 0; i < 3; i++) k.box(.014, rnd(.08, .13), rnd(.035, .055), ox + .008, rnd(1.22, 1.42), rnd(-.04, .04), strip(), [rnd(-.3, .3), 0, rnd(-.05, .2)]);
     k.bone(R ? FORE_R : FORE_L);
     k.taper(.102 * W, .285, .11 * W, .235, .995, 0, '-y', .84, L.sleeves ? sk : uni);
@@ -292,10 +296,32 @@ function buildBody(L) {
     if (!R && L.watch) k.box(.108 * W, .026, .116 * W, .235, .895, 0, F.pad);
     k.bone(R ? HAND_R : HAND_L);
     const gl = L.gloves ? F.glove : sk;
-    k.box(.086, .1, .098, .235, .797, -.004, gl).box(.03, .05, .04, .2, .805, -.045, gl);
-    if (L.gloves) k.box(.098, .036, .106, .235, .856, 0, F.strap).box(.09, .03, .03, .235, .77, -.042, F.pad);
+    k.taper(.08, .098, .09, .235, .798, -.004, '-y', [.92, .8], gl).box(.028, .05, .038, .203, .806, -.043, gl);
+    if (L.gloves) k.box(.092, .034, .1, .235, .856, 0, F.strap).box(.084, .03, .028, .235, .776, -.04, F.pad);
   });
   return k;
+}
+
+/** Old box-model guns (one mesh per colour and part): bake everything into one kit-format mesh. */
+function bakeGun(gun, mat) {
+  const P = [], N = [], C = [], K = [], m = new THREE.Matrix4(), n3 = new THREE.Matrix3(), v = new THREE.Vector3(), list = [];
+  gun.updateMatrixWorld(true); const inv = new THREE.Matrix4().copy(gun.matrixWorld).invert();
+  gun.traverse(o => { if (o.isMesh) list.push(o); });
+  for (const o of list) {
+    const g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry, p = g.attributes.position, nn = g.attributes.normal, c = o.material.color, em = o.material.emissive;
+    const glow = em && em.r + em.g + em.b > 0 ? Math.min(1.5, o.material.emissiveIntensity) : AMB;
+    m.multiplyMatrices(inv, o.matrixWorld); n3.getNormalMatrix(m);
+    for (let i = 0; i < p.count; i++) {
+      v.fromBufferAttribute(p, i).applyMatrix4(m); P.push(v.x, v.y, v.z);
+      v.fromBufferAttribute(nn, i).applyMatrix3(n3).normalize(); N.push(v.x, v.y, v.z);
+      C.push(c.r, c.g, c.b); K.push(0, glow, 0, 0);
+    }
+    o.removeFromParent(); o.geometry.dispose(); if (g !== o.geometry) g.dispose();
+  }
+  const geo = new THREE.BufferGeometry(), F = (a, n) => new THREE.Float32BufferAttribute(a, n);
+  geo.setAttribute('position', F(P, 3)); geo.setAttribute('normal', F(N, 3)); geo.setAttribute('uv', F(new Float32Array(P.length / 3 * 2).fill(.5), 2));
+  geo.setAttribute('color', F(C, 3)); geo.setAttribute('kit', F(K, 4));
+  const mesh = new THREE.Mesh(geo, mat); mesh.userData.baked = true; gun.add(mesh); return mesh;
 }
 
 function makeBones() {
@@ -337,6 +363,27 @@ function ik(up, lo, Qp, A, T, l1, l2, pole, sg) {
   _W.set(wx, wy, wz);
 }
 
+const _d1 = new THREE.Vector3(), _d2 = new THREE.Vector3(), _hg = new THREE.Vector3();
+function raise(d, y) { y = clamp(y, -1, 1); const h = Math.hypot(d.x, d.z), k = Math.sqrt(1 - y * y); if (h > 1e-4) { d.x *= k / h; d.z *= k / h; } else d.x = k; d.y = y; }
+/**
+ * Ground contact for a posed two-bone limb: a middle or end joint that would sink below its clearance (c1, c2,
+ * model space, ground at y = 0) is laid on the ground instead. Same conventions as ik().
+ */
+function settle(up, lo, Qp, A, l1, l2, c1, c2, sg) {
+  _QU.multiplyQuaternions(Qp, up.quaternion); _QL.multiplyQuaternions(_QU, lo.quaternion);
+  _d1.set(0, -1, 0).applyQuaternion(_QU); _d2.set(0, -1, 0).applyQuaternion(_QL);
+  let ch = false;
+  if (A.y + l1 * _d1.y < c1) { raise(_d1, (c1 - A.y) / l1); ch = true; }
+  const my = A.y + l1 * _d1.y;
+  if (my + l2 * _d2.y < c2) { raise(_d2, (c2 - my) / l2); ch = true; }
+  if (!ch) return;
+  _hg.crossVectors(_d2, _d1).multiplyScalar(sg);
+  if (_hg.lengthSq() < 1e-3) { _hg.set(1, 0, 0).applyQuaternion(_QU); _hg.addScaledVector(_d1, -_hg.dot(_d1)); }
+  _hg.normalize(); basis(_QU, _hg.x, _hg.y, _hg.z, -_d1.x, -_d1.y, -_d1.z);
+  _hg.addScaledVector(_d2, -_hg.dot(_d2)).normalize(); basis(_QL, _hg.x, _hg.y, _hg.z, -_d2.x, -_d2.y, -_d2.z);
+  up.quaternion.copy(Qp).invert().multiply(_QU); lo.quaternion.copy(_QU).invert().multiply(_QL);
+}
+
 // ---- deaths ----------------------------------------------------------------------------------
 // Poses: spine / chest / head are Euler XYZ. Limbs are directions in the parent's frame (chest for arms, hips for
 // legs: X right, Y up the spine, Z back). Feet are Euler XYZ in the hips frame. Written for one side, mirrored at random.
@@ -353,11 +400,11 @@ const POSE = {
 // hips tracks: [time 0..1, hips height, travel along the fall direction, pitch, roll]
 const DEATH = {
   back: { T: .68, K: [[0, .97, 0, 0, 0], [.42, .82, .2, .5, 0], [1, .13, .62, 1.5, 0]], air: 'backAir', end: 'back' },
-  front: { T: .95, K: [[0, .97, 0, 0, 0], [.4, .53, -.06, -.2, 0], [.56, .51, -.1, -.4, 0], [1, .145, -.58, -1.47, 0]], air: 'kneel', end: 'front' },
+  front: { T: .95, K: [[0, .97, 0, 0, 0], [.4, .53, -.06, -.2, 0], [.56, .51, -.1, -.4, 0], [1, .17, -.58, -1.42, 0]], air: 'kneel', end: 'front' },
   spin: { T: .85, K: [[0, .97, 0, 0, 0], [.45, .85, .14, .3, -.2], [1, .14, .5, 1.46, -.08]], air: 'spinAir', end: 'backTwist' },
   slump: { T: 1, K: [[0, .97, 0, 0, 0], [.38, .53, .02, -.1, 0], [.56, .5, .02, -.05, -.25], [1, .17, .06, -.1, -1.5]], air: 'kneel', end: 'side' },
 };
-const PACK_TILT = { assalto: .1, engenheiro: .14, suporte: .32, recon: .05 };
+const PACK_TILT = { assalto: .3, engenheiro: .4, suporte: .6, recon: .2 };   // a body on its back rests on its pack
 
 /** Cubic Hermite through the keys of a hips track (component c), accelerating into the last key. */
 function track(K, u, c) {
@@ -439,10 +486,10 @@ class Soldier {
 
   setWeapon(id) {
     const def = WEAPONS[id] || WEAPONS.k7, hand = this.bones[HAND_R];
-    if (this.gun) { this.flash.removeFromParent(); this.gun.removeFromParent(); }
+    if (this.gun) { this.flash.removeFromParent(); this.gun.removeFromParent(); this.gun.traverse(o => { if (o.userData.baked) o.geometry.dispose(); }); }
     const gun = buildGun(def.type, { id, accent: FAC[this.team].accent, lod: 'tp' });
-    let kit = false; gun.traverse(o => { if (o.isMesh && o.material && o.material.name === 'kit') kit = true; });
-    if (!kit) flatten(gun);                                    // old box-model guns: fuse meshes per material
+    let n = 0, kit = 0; gun.traverse(o => { if (o.isMesh) { n++; if (o.material && o.material.name === 'kit') kit++; } });
+    if (n > 1 && kit < n) bakeGun(gun, this.mat);              // old box-model guns: one mesh, one draw call
     gun.traverse(o => { if (!o.isMesh) return; if (o.material && o.material.name === 'kit') o.material = this.mat; else if (this.ghost) o.material = this.ghostBasic; });
     const H = this.hold = Object.assign({}, HOLD[def.type] || HOLD.rifle, gun.userData.hold);
     gun.scale.setScalar(GS); gun.quaternion.copy(Q_GUN);
@@ -514,7 +561,7 @@ class Soldier {
 
     // ---- torso (model space) ----
     const bl = (.4 + .6 * aim) * (1 - .5 * run), twist = .1 * c2 * mv * fw * (1 - .5 * aim);
-    const lean = -.034 * A.vf * (1 - .45 * aim) - .1 * cr, roll = -.022 * A.vr - .1 * aim;
+    const lean = -.05 - .034 * A.vf * (1 - .45 * aim) - .1 * cr - .06 * aim, roll = -.022 * A.vr - .1 * aim;
     qH.setFromEuler(_e.set(lean * .45 + .1 * A.fz, -.14 * bl + twist, -.011 * A.vr - .06 * A.fx, 'YXZ'));
     qS.setFromEuler(_e.set(lean * .3 + .26 * p + .16 * A.fz - .04 * cr, -.16 * bl - twist * .7, roll * .5 - .12 * A.fx, 'YXZ'));
     qC.setFromEuler(_e.set(lean * .25 + .26 * p + .14 * A.fz + .012 * breath + .03 * rec, -.2 * bl - twist * .7, roll * .5 - .1 * A.fx, 'YXZ'));
@@ -522,8 +569,11 @@ class Soldier {
     QHd.setFromEuler(_e.set(p * .95 + .1 * A.fz, Math.sin(A.t * .43 + A.t0) * .3 * (1 - aim) * (1 - .6 * mv), -.1 * aim - .12 * A.fx, 'YXZ'));
     // the hips go wherever they must for the head to sit on its hit sphere
     vA.set(0, .12, 0).applyQuaternion(qH); vB.set(0, .16, 0).applyQuaternion(QS); vC.set(0, .24, .01).applyQuaternion(QC); vD.set(0, .125, -.005).applyQuaternion(QHd);
-    let hy = 1.62 - .42 * cr - .01 * aim * (1 - cr) - .035 * mv - .03 * run - (.016 + .02 * run) * c4 * mv + .003 * breath - (vA.y + vB.y + vC.y + vD.y);
-    if (hy > .97) hy = .97;
+    // head height in the world: as tall as straight legs allow when relaxed, down on the sights when aiming, 1.2 crouched
+    const up = vA.y + vB.y + vC.y + vD.y, hS = this.look.h, yTop = .982, hStand = (yTop + up) * hS;
+    const hW = lerp(lerp(hStand, Math.min(hStand, 1.61), aim), 1.2, cr);
+    let hy = hW / hS - up - .035 * mv - .03 * run - (.016 + .02 * run) * c4 * mv + .003 * (breath - 1);
+    if (hy > yTop) hy = yTop;
     Ph.set(.016 * s2 * mv + .04 * A.fx - (vA.x + vB.x + vC.x + vD.x), hy, .04 * A.fz - (vA.z + vB.z + vC.z + vD.z));
     B[HIPS].position.copy(Ph); B[HIPS].quaternion.copy(qH); B[SPINE].quaternion.copy(qS); B[CHEST].quaternion.copy(qC);
     B[HEAD].quaternion.copy(QC).invert().multiply(QHd);
@@ -564,14 +614,15 @@ class Soldier {
     B[HAND_L].quaternion.copy(_QL).invert().multiply(Qhl);
 
     // ---- legs: feet follow a stance / swing path, knees by IK ----
-    const kneel = cr * still, st = still * (.35 + .65 * aim) * (1 - cr);
+    const kneel = cr * still, st = still * (.35 + .65 * aim) * (1 - cr), zc = Ph.z + .02;   // the feet stay under the hips, the head over the root
     for (let side = 1; side >= -1; side -= 2) {
       const R = side > 0, pf = R ? ph : (ph + .5) % 1; let al, lift, pit;
       if (pf < duty) { const u = pf / duty; al = 1 - 2 * u; lift = .035 * run * sstep(.7, 1, u); pit = u < .18 ? .22 * (1 - u / .18) : -.5 * sstep(.6, 1, u); }
       else { const u = (pf - duty) / (1 - duty); al = -1 + 2 * u * u * (3 - 2 * u); lift = (.06 + .14 * run + .02 * cr) * Math.sin(PI * Math.pow(u, .8)); pit = -.55 * (1 - u) * (.4 + .6 * run) + .22 * u; }
       pit *= mv * fw;
-      let fx = side * (.105 + .02 * aim * still + .06 * Math.abs(dx) * mv) + dx * al * amp * .45, fy = .085 + lift * mv, fz = (R ? .13 * st + .24 * kneel : -.15 * st - .32 * kneel) + dz * al * amp;
-      if (R) { fy += .1 * kneel; pit -= .72 * kneel; }
+      let fx = side * (.105 + .02 * aim * still + .06 * Math.abs(dx) * mv) + dx * al * amp * .45, fy = .085 + lift * mv, fz = zc + (R ? .14 * st + .24 * kneel : -.14 * st - .3 * kneel) + dz * al * amp;
+      if (R) pit -= .72 * kneel;
+      fy += pit < 0 ? -.19 * Math.sin(pit) : .07 * Math.sin(pit);             // the toe (or the heel) stays on the ground
       vE.set(fx, fy, fz);
       vG.set(side * .1, -.04, 0).applyQuaternion(qH).add(Ph);
       vP.set(side * .14, R ? -.4 * kneel : .1 * kneel, -1).applyQuaternion(qH);
@@ -639,6 +690,14 @@ class Soldier {
       B[HIPS].quaternion.copy(D.q0[HIPS]).slerp(qT, sstep(0, .14, t));
       const wa = sstep(0, D.tA, t), wb = sstep(D.tB, T + .12, t);
       for (let i = 1; i < NB; i++) if (i !== HELM || !D.helm) B[i].quaternion.copy(D.q0[i]).slerp(D.qa[i], wa).slerp(D.qb[i], wb);
+      // nothing sinks into the ground: limbs that reach it lie down on it
+      const qh = B[HIPS].quaternion; QS.multiplyQuaternions(qh, B[SPINE].quaternion); QC.multiplyQuaternions(QS, B[CHEST].quaternion);
+      Ph.copy(B[HIPS].position); Pc.set(0, .12, 0).applyQuaternion(qh).add(Ph).add(vA.set(0, .16, 0).applyQuaternion(QS));
+      for (let s = 1; s >= -1; s -= 2) {
+        const R = s > 0;
+        vD.set(s * .235, .17, 0).applyQuaternion(QC).add(Pc); settle(B[R ? ARM_R : ARM_L], B[R ? FORE_R : FORE_L], QC, vD, L_ARM1, L_ARM2, .07, .055, -1);
+        vD.set(s * .1, -.04, 0).applyQuaternion(qh).add(Ph); settle(B[R ? THIGH_R : THIGH_L], B[R ? SHIN_R : SHIN_L], qh, vD, L_LEG1, L_LEG2, .085, .08, 1);
+      }
     }
     if (D.gun === 1) D.gun = this._drop(this.gun, D.gv, D.gw, dt, .045, 1);
     else if (D.gun === 2) this.gun.quaternion.slerp(D.gq, Math.min(1, dt * 9));
@@ -666,7 +725,7 @@ class Soldier {
   }
 
   dispose() {
-    this.root.removeFromParent(); this.body.geometry.dispose(); this.body.skeleton.dispose(); this.mat.dispose(); if (this.ghostBasic) this.ghostBasic.dispose();
+    this.root.removeFromParent(); if (this.gun) this.gun.traverse(o => { if (o.userData.baked) o.geometry.dispose(); }); this.body.geometry.dispose(); this.body.skeleton.dispose(); this.mat.dispose(); if (this.ghostBasic) this.ghostBasic.dispose();
     if (this.label) { this.label.material.map.dispose(); this.label.material.dispose(); }
   }
 }
