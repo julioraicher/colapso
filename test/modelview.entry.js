@@ -25,8 +25,8 @@ function build(spec, { KIT, W, S }) {
       k.bone(2).box(.1, .1, .5, .25, 1.38, .22, { tile: TILE.ripstop, tint: PAL.navy }).decal(TILE.omega, .09, .09, .3, 1.38, .1, '+x', PAL.omega);
       const hips = new THREE.Bone(), head = new THREE.Bone(), arm = new THREE.Bone();
       hips.position.y = 1; head.position.y = .5; arm.position.set(.25, .38, 0); hips.add(head, arm);
-      const m = k.skinned([hips, head, arm]); arm.rotation.x = -1.1; head.rotation.y = .6;
-      out.obj = m; out.note = 'arm raised and head turned by bones'; return done();
+      const m = k.skinned([hips, head, arm], KIT.kitMaterial({ unique: true, color: 0xfff0d8 })); arm.rotation.x = -1.1; head.rotation.y = .6;   // unique clone: same program, own tint
+      out.obj = m; out.note = 'arm raised and head turned by bones, unique tinted material'; return done();
     }
     if (p[1] === 'prims') {   // one of each primitive: winding / normal / uv check
       const { Kit, TILE, PAL } = KIT, k = new Kit(96), st = { tile: TILE.panel, tint: PAL.steel }, tn = { tile: TILE.ribs, tint: PAL.tan };
