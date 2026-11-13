@@ -257,7 +257,8 @@ export class Bot {
         for (const f of flags) {
           const owned = f.owner === this.team && Math.abs(f.cap) >= 1;
           const d = Math.hypot(f.x - this.pos.x, f.z - this.pos.z);
-          const s = (owned ? -40 : 30) - d * 0.6 + (this.goalF === f ? 15 : 0) + Math.random() * 25 + (f.contested ? 20 : 0);
+          const danger = g.event && g.event.st === 'warn' && f.id === 'B' ? -200 : 0;
+          const s = danger + (owned ? -40 : 30) - d * 0.6 + (this.goalF === f ? 15 : 0) + Math.random() * 25 + (f.contested ? 20 : 0);
           if (s > bs) { bs = s; bestF = f; }
         }
         this.goalF = bestF;

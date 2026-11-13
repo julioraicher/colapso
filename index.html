@@ -56,6 +56,8 @@ canvas#gl { position:fixed; inset:0; width:100%; height:100%; display:block; }
 @keyframes kfin { from { transform:translateX(30px); opacity:0; } }
 #msg { position:absolute; left:50%; top:62%; transform:translateX(-50%); text-align:center; font-size:15px; letter-spacing:3px; text-shadow:0 2px 6px #000; }
 #msg .big { font-size:22px; font-weight:700; color:#fff; } #msg .pts { color:#ffd25a; }
+#evt { position:absolute; top:120px; left:50%; transform:translateX(-50%); font-size:16px; letter-spacing:4px; font-weight:700; color:#ff4fd8; text-shadow:0 0 12px rgba(255,79,216,.8); animation:pulse2 .6s infinite alternate; text-align:center; }
+@keyframes pulse2 { to { opacity:.55; } }
 #tunhint { position:absolute; left:50%; top:calc(50% + 34px); transform:translateX(-50%); font-size:12px; letter-spacing:2px; color:var(--c); text-shadow:0 1px 4px #000; white-space:nowrap; }
 #tunhint.no { color:#ff5a4a; }
 /* damage */
@@ -108,7 +110,7 @@ select { font:inherit; background:#0d141d; color:#fff; border:1px solid #345; pa
     <div class="tk them" id="tk1">200</div>
   </div>
   <div id="capbox" class="hidden"><div id="captxt">CAPTURANDO</div><div id="capbar"><b></b></div></div>
-  <div id="kf"></div>
+  <div id="kf"></div><div id="evt" class="hidden"></div>
   <div id="xh"><i class="l"></i><i class="r"></i><i class="t"></i><i class="b"></i><i class="d"></i></div>
   <div id="hm"></div>
   <div id="tunhint" class="hidden"></div>

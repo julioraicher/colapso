@@ -54,6 +54,7 @@ export class World {
     this.light = light; // {sun: Vector3 (normalised), sunCol, skyCol, groundCol}
     this.mat = new THREE.MeshBasicMaterial({ vertexColors: true, fog: true });
     this.glassMat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.45, depthWrite: false, fog: true });
+    this.lost = [];
     this.onChange = null; // callback(minx,minz,maxx,maxz) for nav updates
   }
   idx(x, y, z) { return (y * SZ + z) * SX + x; }
@@ -116,6 +117,30 @@ export class World {
         if (up) { q.push(j); if (q.length > 400000) return; }
       }
     }
+  }
+  // Destroyed emitters: clear light in the affected box (bbox + max range), then re-seed from the box shell
+  // and surviving emitters inside it. Exact for BFS light since nothing outside the box depended on them.
+  flushLights() {
+    if (!this.lost.length) return;
+    let a = SX, b = SY, c = SZ, d = 0, e = 0, f = 0;
+    for (const [x, y, z] of this.lost) { a = Math.min(a, x); b = Math.min(b, y); c = Math.min(c, z); d = Math.max(d, x); e = Math.max(e, y); f = Math.max(f, z); }
+    this.lost.length = 0;
+    const R = 15;
+    const x0 = Math.max(0, a - R), y0 = Math.max(0, b - R), z0 = Math.max(0, c - R), x1 = Math.min(SX - 1, d + R), y1 = Math.min(SY - 1, e + R), z1 = Math.min(SZ - 1, f + R);
+    const q = [];
+    for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
+      const i = this.idx(x, y, z); const m = this.v[i];
+      if (m >= 20 && m <= 24) { const em = MATDEF[m].emit; this.lr[i] = em[0]; this.lg[i] = em[1]; this.lb[i] = em[2]; q.push(i); }
+      else { this.lr[i] = 0; this.lg[i] = 0; this.lb[i] = 0; }
+    }
+    // shell just outside the box keeps valid light → seeds
+    for (let y = y0 - 1; y <= y1 + 1; y++) for (let z = z0 - 1; z <= z1 + 1; z++) for (let x = x0 - 1; x <= x1 + 1; x++) {
+      if (x >= x0 && x <= x1 && y >= y0 && y <= y1 && z >= z0 && z <= z1) continue;
+      if (!this.inb(x, y, z)) continue; const i = this.idx(x, y, z); if (this.lr[i] | this.lg[i] | this.lb[i]) q.push(i);
+    }
+    this.propagate(q);
+    for (let y = y0; y <= y1 + CS; y += CS) for (let z = z0; z <= z1 + CS; z += CS) for (let x = x0; x <= x1 + CS; x += CS)
+      this.markDirtyVoxel(Math.min(x, SX - 1), Math.min(y, SY - 1), Math.min(z, SZ - 1));
   }
   // Newly opened cells pull light from neighbours (holes in walls leak neon outside).
   relight(cells) {
@@ -276,8 +301,10 @@ export class World {
     const h = this.hp[i] - dmg;
     if (h > 0) { this.hp[i] = h; return 0; }
     this.v[i] = 0; this.hp[i] = 0; this.markDirtyVoxel(x, y, z);
+    if (isEmitter(m)) this.lost.push([x, y, z]);
     this.afterRemoval([[x, y, z]]);
     this.relight([[x, y, z]]);
+    this.flushLights();
     return m;
   }
   // Spherical blast (world centre, radius in m). Returns list of removed {x,y,z,m} (for debris).
@@ -301,12 +328,13 @@ export class World {
           const f = 1 - Math.sqrt(d2) / vr;
           if (hard > 20 && f < 0.6) continue;
           if (f * 10 * power + hash3(x, y, z) * 3 < Math.min(hard, 12) * 0.35) continue;
-          this.v[i] = 0; this.hp[i] = 0; removed.push({ x, y, z, m });
+          this.v[i] = 0; this.hp[i] = 0; removed.push({ x, y, z, m }); if (m >= 20 && m <= 24) this.lost.push([x, y, z]);
           this.markDirtyVoxel(x, y, z);
           edge.push([x, y, z]);
         }
     const fallen = this.afterRemoval(edge);
     this.relight(edge.length > 200 ? edge.filter((_, i) => i % 4 === 0) : edge);
+    this.flushLights();
     return { removed, fallen };
   }
 
@@ -314,13 +342,14 @@ export class World {
   // to the ground (y<=1 or indestructible) within a budget becomes falling debris.
   afterRemoval(cells) {
     const seen = new Set(); const fallen = [];
-    const N6 = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
+    // DFS pops the last-pushed neighbour first: push "down" last so the search dives toward the ground
+    const N6 = [[0, 1, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1], [0, -1, 0]];
     const seeds = [];
     for (const [x, y, z] of cells) for (const n of N6) {
       const a = x + n[0], b = y + n[1], c = z + n[2];
       if (this.inb(a, b, c) && this.v[this.idx(a, b, c)]) seeds.push([a, b, c]);
     }
-    let budget = 30000;
+    let budget = 150000;
     for (const s of seeds) {
       const si = this.idx(s[0], s[1], s[2]);
       if (seen.has(si)) continue;
@@ -343,7 +372,7 @@ export class World {
       if (!grounded) {
         for (const p of comp) {
           const i = this.idx(p[0], p[1], p[2]);
-          fallen.push({ x: p[0], y: p[1], z: p[2], m: this.v[i] });
+          fallen.push({ x: p[0], y: p[1], z: p[2], m: this.v[i] }); if (this.v[i] >= 20 && this.v[i] <= 24) this.lost.push(p);
           this.v[i] = 0; this.hp[i] = 0; this.markDirtyVoxel(p[0], p[1], p[2]);
         }
       }

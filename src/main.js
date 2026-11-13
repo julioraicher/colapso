@@ -123,6 +123,7 @@ class Game {
     this.bots = [];
     this.flags = FLAGS.map(f => ({ ...f, cap: 0, owner: -1, contested: false, n: [0, 0] }));
     this.tickets = [300, 300]; this.drainT = 0;
+    this.event = { st: 'idle', t: 0 };
     for (let i = 0; i < 7; i++) this.bots.push(new Bot(this, 0));
     for (let i = 0; i < 8; i++) this.bots.push(new Bot(this, 1));
     this.entities = [this.pent, ...this.bots, this.echo];
@@ -519,6 +520,43 @@ class Game {
     if (this.drainT > 4) { this.drainT = 0; if (own[0] > own[1]) this.tickets[1] = Math.max(0, this.tickets[1] - (own[0] - own[1])); if (own[1] > own[0]) this.tickets[0] = Math.max(0, this.tickets[0] - (own[1] - own[0])); }
     if ((this.tickets[0] <= 0 || this.tickets[1] <= 0) && this.state === 'play') this.endMatch(this.tickets[1] <= 0);
   }
+  // Map-changing set piece: reactor overload mid-match. Warning siren, countdown, chain detonation,
+  // the centre of the map is permanently reshaped (and its neon light goes out).
+  updateEvent(dt) {
+    const E = this.event; if (!E) return;
+    const core = new THREE.Vector3(96 * VS, (G + 8) * VS, 96 * VS);
+    if (E.st === 'idle' && Math.min(...this.tickets) < 190) { E.st = 'warn'; E.t = 20; E.siren = 0; this.hud.toast('ALERTA · SOBRECARGA DO REATOR', 0, true); }
+    if (E.st === 'warn') {
+      E.t -= dt; E.siren -= dt;
+      if (E.siren <= 0) { E.siren = 1.2; this.audio.play('siren', core, 2.2, 1, 0.6); }
+      this.hud.event(`⚠ SOBRECARGA DO REATOR · ${Math.ceil(E.t)}s · SAIA DO PONTO B`);
+      if (E.t <= 0) { E.st = 'boom'; E.t = 0; E.k = 0; }
+    }
+    if (E.st === 'boom') {
+      E.t -= dt;
+      if (E.t <= 0) {
+        const seq = [
+          [core, 6.5], [new THREE.Vector3(core.x, core.y + 3, core.z), 5],
+          ...[0, 1, 2, 3].map(a => { const ang = a * Math.PI / 2 + Math.PI / 4; return [new THREE.Vector3((96 + Math.cos(ang) * 12) * VS, (G + 9) * VS, (96 + Math.sin(ang) * 12) * VS), 3.4]; }),
+          [new THREE.Vector3(core.x, (G + 1) * VS, core.z), 5.5],
+        ];
+        const [c, r] = seq[E.k];
+        const res = this.world.explode(c, r, 2.5);
+        this.fx.explosion(c, r * 1.4); this.fx.quantum(c, 60, [1, 0.3, 0.9]);
+        this.audio.play('explosion', c, 2.5, 0.8, 0.8);
+        const step = Math.max(1, Math.floor(res.removed.length / 120));
+        for (let i = 0; i < res.removed.length; i += step) { const q = res.removed[i]; const px = (q.x + .5) * VS, py = (q.y + .5) * VS, pz = (q.z + .5) * VS; const dx = px - c.x, dy = py - c.y, dz = pz - c.z, L = Math.hypot(dx, dy, dz) + .1; this.fx.debris(px, py, pz, dx / L * 12, dy / L * 10 + 6, dz / L * 12, q.m, 0.6 + Math.random() * 0.6, 6); }
+        for (const e of this.entities) { if (!e.alive) continue; const d = e.pos.distanceTo(c); if (d < r * 2.2) { const was = e.alive; e.hurt(200 * (1 - d / (r * 2.2)) + 20, this.time, null); if (e.isBot && was && !e.alive) this.hud.feed('REATOR', e.name, -1, false, false, false); } }
+        const pd = this.player.eye.distanceTo(c); this.trauma = 1; this.hud.flash(Math.max(0, 0.9 - pd / 60));
+        E.k++; E.t = 0.35 + Math.random() * 0.3;
+        if (E.k >= seq.length) {
+          // the halo rings lost their supports: integrity pass makes them crash down
+          const probe = []; for (let a = 0; a < 6.28; a += 0.2) for (const y of [G + 9, G + 11, G + 14, G + 16]) probe.push([Math.round(96 + Math.cos(a) * 5), y, Math.round(96 + Math.sin(a) * 5)]);
+          this.world.afterRemoval(probe); this.world.flushLights();
+          E.st = 'done'; this.hud.event(null); this.hud.toast('O REATOR COLAPSOU', 0); }
+      }
+    }
+  }
   inFlag(f) { const p = this.player.pos; return this.player.alive && Math.hypot(p.x - f.x, p.z - f.z) < 7.5; }
   endMatch(win) {
     this.state = 'end'; document.exitPointerLock && document.exitPointerLock();
@@ -633,7 +671,7 @@ class Game {
     this.echo.update(dt, now);
     for (const e of this.entities) if (e.spottedT > 0) e.spottedT -= dt;
     this.updateGrenades(dt);
-    if (this.state === 'play') this.updateFlags(dt);
+    if (this.state === 'play') { this.updateFlags(dt); this.updateEvent(dt); }
     this.fx.update(dt);
     this.updateWeather(dt);
     // --- camera ---

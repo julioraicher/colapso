@@ -146,6 +146,12 @@ export class Audio {
         const lp = oc.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1500; s.connect(lp);
         this.env(oc, lp, 0.02, 0.3, 0.5).connect(o); s.start(); s.stop(0.6);
       }],
+      siren: [1.2, (oc, o) => {
+        const s = oc.createOscillator(); s.type = 'sawtooth';
+        s.frequency.setValueAtTime(520, 0); s.frequency.linearRampToValueAtTime(880, 0.6); s.frequency.linearRampToValueAtTime(520, 1.2);
+        const lp = oc.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1400; s.connect(lp);
+        const g = oc.createGain(); g.gain.value = 0.35; lp.connect(g); g.connect(o); s.start(); s.stop(1.2);
+      }],
       pin: [0.2, (oc, o) => { const n = this.noise(oc, 0.1); const bp = oc.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 3500; bp.Q.value = 8; n.connect(bp); this.env(oc, bp, 0.001, 0.4, 0.05).connect(o); n.start(); }],
       hurt: [0.25, (oc, o) => { const n = this.noise(oc, 0.25); const lp = oc.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 300; n.connect(lp); this.env(oc, lp, 0.005, 0.8, 0.2).connect(o); n.start(); }],
     };

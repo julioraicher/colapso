@@ -17,7 +17,7 @@ const WDESC = {
 export class HUD {
   constructor(game) { this.g = game; this.hmT = 0; this.vig = 0; this.qT = 0; this.flashV = 0; this.msgT = 0; this.dmgDirs = []; this.mapDirty = false; this.mapT = 0; }
   reset() {
-    $('kf').innerHTML = ''; $('msg').innerHTML = '';
+    $('kf').innerHTML = ''; $('msg').innerHTML = ''; this.event(null);
     $('flags').innerHTML = this.g.flags.map(f => `<div class="fl" id="fl${f.id}"><span>${f.id}</span></div>`).join('');
   }
   buildMinimap() {
@@ -106,6 +106,7 @@ export class HUD {
     $('msg').innerHTML = `<div class="big" style="color:${bad ? '#ff6a5a' : '#fff'}">${text}</div>${pts ? `<div class="pts">+${pts}</div>` : ''}`;
     this.msgT = 2;
   }
+  event(t) { const el = $('evt'); if (!t) { el.classList.add('hidden'); return; } el.classList.remove('hidden'); el.textContent = t; }
   hideScore() { if (this.g.state === 'play') $('score').classList.add('hidden'); }
   // ---------- per-frame ----------
   update(dt) {
