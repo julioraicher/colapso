@@ -1,14 +1,17 @@
 {
-  "name": "game",
+  "name": "colapso",
   "version": "1.0.0",
-  "description": "",
+  "description": "FPS de conquista com destruicao voxel e mecanicas quanticas",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "node build.mjs",
+    "dev": "node build.mjs && echo abra dist/index.html",
+    "test": "node test/playtest.cjs out/shots 240",
+    "package": "node package-win.mjs"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "julioraicher",
+  "license": "MIT",
   "dependencies": {
     "esbuild": "^0.28.2",
     "three": "^0.187.0"

@@ -119,7 +119,7 @@ export class Bot {
     this.cool = 0; this.burst = 0; this.ammo = this.wdef.mag; this.reloadT = 0; this.aimErr = 0.1; this.react = 0;
     this.thinkT = Math.random() * 0.3; this.walk = 0; this.deadT = 0; this.respawnT = 1 + Math.random() * 3;
     this.goal = null; this.strafe = 0; this.strafeT = 0; this.nade = 15 + Math.random() * 20; this.stuckT = 0; this.lastPos = new THREE.Vector3();
-    this.kills = 0; this.deaths = 0; this.skill = 0.55 + Math.random() * 0.35; this.isBot = true; this.crouch = false;
+    this.kills = 0; this.deaths = 0; this.baseSkill = (team === 1 ? 0.62 : 0.52) + Math.random() * 0.33; this.skill = this.baseSkill; this.isBot = true; this.crouch = false;
     this.model.visible = false; this.suppress = 0;
   }
   get eye() { return new THREE.Vector3(this.pos.x, this.pos.y + (this.crouch ? 1.15 : 1.6), this.pos.z); }
@@ -202,6 +202,7 @@ export class Bot {
     // ---- animation ----
     const spd = Math.hypot(vx, vz);
     this.walk += spd * dt * 2.4;
+    if (spd > 1 && Math.floor(this.walk / Math.PI) !== this.lastStep) { this.lastStep = Math.floor(this.walk / Math.PI); if (g.player.pos.distanceTo(this.pos) < 18) g.audio.play('step', this.pos, this.team === 1 ? 0.9 : 0.5, 0.85); }
     const sw = Math.sin(this.walk) * Math.min(1, spd / 3) * 0.7;
     U.legs[0].leg.rotation.x = sw; U.legs[1].leg.rotation.x = -sw;
     U.legs[0].shin.rotation.x = Math.max(0, -sw) * 1.2; U.legs[1].shin.rotation.x = Math.max(0, sw) * 1.2;
@@ -223,6 +224,8 @@ export class Bot {
   }
   think(now) {
     const g = this.g;
+    // rubber-band: the team behind on tickets fights harder (keeps matches close and tense)
+    if (g.tickets) { const deficit = g.tickets[1 - this.team] - g.tickets[this.team]; this.skill = this.baseSkill * (1 + 0.3 * Math.max(0, Math.min(1, deficit / 60))); }
     // perception: nearest visible enemy (incl. player & quantum decoys) within cone or recently alerted
     let best = null, bd = 1e9;
     const eye = this.eye;

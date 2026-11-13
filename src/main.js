@@ -64,7 +64,7 @@ class Game {
     await step(70, 'navegação');
     this.nav = new Nav(this.world);
     this.colTop = new Uint8Array(SX * SZ); this.updateColTop(0, 0, SX - 1, SZ - 1);
-    this.world.onChange = (a, b, c, d) => { this.nav.rebuildVox(a, b, c, d); this.hud.mapDirty = true; this.updateColTop(a, b, c, d); };
+    this.world.onChange = (a, b, c, d) => { this.nav.rebuildVox(a, b, c, d); this.hud.markMap(a, b, c, d); this.updateColTop(a, b, c, d); };
     this.world.onFall = (cells) => this.onCollapse(cells);
     await step(80, 'efeitos');
     this.fx = new FX(this.scene, this.world);
@@ -77,6 +77,8 @@ class Game {
       hurt: (d, now, from) => this.playerHurt(d, from) };
     this.echo = new Echo(this);
     this.hud.buildMinimap();
+    await step(96, 'compilando shaders');
+    this.renderer.compile(this.scene, this.camera); this.renderer.compile(this.vm.scene, this.vm.cam);
     await step(100, 'pronto');
     $('loading').classList.add('hidden');
     this.state = 'menu'; this.show('menu');
@@ -356,7 +358,8 @@ class Game {
       this.pent.deaths++; this.tickets[0] = Math.max(0, this.tickets[0] - 1);
       this.hud.feed(from ? (from.name || '???') : 'AMBIENTE', 'VOCÊ', from ? from.team : 1, false, false, true);
       if (this.echo.alive) this.echo.kill(false);
-      this.deathT = 3; this.killer = from;
+      this.deathT = 3.5; this.killer = from;
+      this.hud.toast(from && from.name ? `ABATIDO POR ${from.name}` : 'VOCÊ MORREU', 0, true);
       this.mouse.l = false;
     }
   }
@@ -417,6 +420,7 @@ class Game {
       if (owner === this.pent && e !== this.pent) this.hud.hit(!e.alive, false);
     }
     const pd = this.player.eye.distanceTo(c);
+    if (pd < 6 && this.player.alive) { const k = (1 - pd / 6) * 9; const dir = this.player.eye.sub(c).normalize(); this.player.vel.addScaledVector(dir, k); this.player.vel.y += k * 0.4; }
     this.trauma = Math.min(1, this.trauma + Math.max(0, 1 - pd / 25));
     if (pd < 10) this.hud.flash(0.4 * (1 - pd / 10));
   }

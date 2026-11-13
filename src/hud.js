@@ -22,10 +22,15 @@ export class HUD {
   }
   buildMinimap() {
     // top-down bake: highest solid voxel colour, shaded by height; emitters glow
-    const c = document.createElement('canvas'); c.width = SX; c.height = SZ; this.mapC = c; this.mapX = c.getContext('2d');
+    const c = document.createElement('canvas'); c.width = SX; c.height = SZ; this.mapC = c; this.mapX = c.getContext('2d', { willReadFrequently: true });
     this.bakeMap(0, 0, SX - 1, SZ - 1);
   }
+  markMap(a, b, c, d) {
+    const r = this.mapBox; if (!r) this.mapBox = [a, b, c, d]; else { r[0] = Math.min(r[0], a); r[1] = Math.min(r[1], b); r[2] = Math.max(r[2], c); r[3] = Math.max(r[3], d); }
+    this.mapDirty = true;
+  }
   bakeMap(x0, z0, x1, z1) {
+    x0 = Math.max(0, x0 - 2); z0 = Math.max(0, z0 - 2); x1 = Math.min(SX - 1, x1 + 2); z1 = Math.min(SZ - 1, z1 + 2);
     const w = this.g.world; const ctx = this.mapX;
     const img = ctx.getImageData(x0, z0, x1 - x0 + 1, z1 - z0 + 1); const d = img.data;
     for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
@@ -163,7 +168,7 @@ export class HUD {
     }
     dd.innerHTML = html;
     // minimap
-    this.mapT -= dt; if (this.mapDirty && this.mapT <= 0) { this.mapDirty = false; this.mapT = 1; this.bakeMap(0, 0, SX - 1, SZ - 1); }
+    this.mapT -= dt; if (this.mapDirty && this.mapT <= 0) { this.mapDirty = false; this.mapT = 0.5; const r = this.mapBox; this.mapBox = null; this.bakeMap(r[0], r[1], r[2], r[3]); }
     this.drawMinimap();
     if (!$('score').classList.contains('hidden')) this.drawScore();
   }
