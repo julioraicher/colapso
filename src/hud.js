@@ -14,8 +14,9 @@ const EL = {};
 const E = (id) => EL[id] || (EL[id] = $(id)); // cached lookup, static elements only
 const setT = (el, v) => { if (el._t !== v) { el._t = v; el.textContent = v; } };
 const setH = (el, v) => { if (el._h !== v) { el._h = v; el.innerHTML = v; } };
-const setC = (el, c, on) => { on = !!on; const k = '_c_' + c; if (el[k] !== on) { el[k] = on; el.classList.toggle(c, on); } };
-const setS = (el, p, v) => { const k = '_s_' + p; if (el[k] !== v) { el[k] = v; el.style[p] = v; } };
+const CK = {}, SK = {}; // interned cache-key names, so the per-frame path allocates no strings for them
+const setC = (el, c, on) => { on = !!on; const k = CK[c] || (CK[c] = '_c_' + c); if (el[k] !== on) { el[k] = on; el.classList.toggle(c, on); } };
+const setS = (el, p, v) => { const k = SK[p] || (SK[p] = '_s_' + p); if (el[k] !== v) { el[k] = v; el.style[p] = v; } };
 const bar = (el, f) => { const q = Math.round(Math.max(0, Math.min(1, f || 0)) * 100); if (el._q !== q) { el._q = q; el.style.transform = 'scaleX(' + q / 100 + ')'; } };
 const fmtN = (n) => (+n || 0).toLocaleString('pt-BR');
 const owner = (f) => (f.owner === 0 && f.cap >= 1 ? 0 : f.owner === 1 && f.cap <= -1 ? 1 : -1);
@@ -83,7 +84,8 @@ export class HUD {
     if (g.state === 'play' || g.state === 'deploy' || g.state === 'loading') return;
     if (g.state === 'menu') {
       if (c === 'Escape') { if (vis('how')) E('bHowBack').click(); else if (vis('opts')) E('bOptBack').click(); }
-      if (c === 'Enter' && vis('menu') && !(document.activeElement && document.activeElement.tagName === 'BUTTON')) E('bPlay').click();
+      // deferred: Game's own keydown handler must still see the menu state for this event
+      if (c === 'Enter' && vis('menu') && !(document.activeElement && document.activeElement.tagName === 'BUTTON')) setTimeout(() => { if (g.state === 'menu') E('bPlay').click(); }, 0);
     }
     if (c === 'ArrowDown' || c === 'ArrowUp') {
       const ov = document.querySelector('.ov:not(.hidden)'); if (!ov) return;
@@ -486,8 +488,8 @@ export class HUD {
   // Objective markers: flag letter + distance projected with the game camera, clamped to an ellipse when off-screen
   updateObjs(on) {
     const g = this.g; setC(E('objs'), 'hidden', !on); if (!on) return;
-    const cam = g.camera, p = g.player, cx = innerWidth / 2, cy = innerHeight / 2, rx = cx - 64 * this.hs, ry = cy - 120 * this.hs, ads = g.ads > 0.5;
-    const rxR = this.tutOn ? Math.max(120, cx - 300 * this.hs) : rx; // keep clear of the first-steps checklist
+    const cam = g.camera, p = g.player, cx = innerWidth / 2, cy = innerHeight / 2, rx = cx - 100 * this.hs, ry = cy - 175 * this.hs, ads = g.ads > 0.5;
+    const rxR = this.tutOn ? Math.max(120, cx - 335 * this.hs) : rx; // keep clear of the first-steps checklist
     cam.updateWorldMatrix(true, false); _m.copy(cam.matrixWorld).invert();
     for (let i = 0; i < g.flags.length; i++) {
       const f = g.flags[i], o = this.objEls[i]; if (!o) continue;
@@ -541,7 +543,7 @@ export class HUD {
       const list = g.entities.filter(e => !e.isEcho && e.team === team).map(e => ({ n: e.name, k: e.kills || 0, d: e.deaths || 0, me: e.isPlayer, s: e.isPlayer ? e.score : (e.score ?? (e.kills || 0) * 100) }));
       list.sort((a, b) => b.s - a.s);
       return `<tr><th>${team === 0 ? 'KAPPA' : 'ÔMEGA'}<em>${g.tickets[team]} TICKETS</em></th><th>ABATES</th><th>MORTES</th><th>PONTOS</th></tr>`
-        + list.map((r, i) => `<tr class="${r.me ? 'me' : ''}"><td><i>${i + 1}</i>${esc(r.n)}${r.me ? '<u>VOCÊ</u>' : ''}</td><td>${r.k}</td><td>${r.d}</td><td>${r.s}</td></tr>`).join('');
+        + list.map((r, i) => `<tr class="${r.me ? 'me' : ''}"><td><i>${i + 1}</i>${esc(r.n)}${r.me && r.n !== 'VOCÊ' ? '<u>VOCÊ</u>' : ''}</td><td>${r.k}</td><td>${r.d}</td><td>${r.s}</td></tr>`).join('');
     };
     setH(E('sc0'), rows(0)); setH(E('sc1'), rows(1));
   }
