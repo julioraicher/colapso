@@ -6,6 +6,7 @@ import { Player } from './player.js';
 import { WEAPONS, PRIMARIES, SECONDARIES, CLASSES, Viewmodel, damageAt } from './weapons.js';
 import { Audio } from './audio.js';
 import { FX } from './fx.js';
+import { Env } from './sky.js';
 import { Nav, Bot, rayEntity } from './ai.js';
 import { scanTunnel, Echo, E_MAX } from './abilities.js';
 import { HUD, rankOf } from './hud.js';
@@ -71,8 +72,8 @@ class Game {
     this.world.onChange = (a, b, c, d) => { this.nav.rebuildVox(a, b, c, d); this.hud.markMap(a, b, c, d); this.updateColTop(a, b, c, d); };
     this.world.onFall = (cells) => this.onCollapse(cells);
     await step(80, 'efeitos');
-    this.fx = new FX(this.scene, this.world);
-    this.glow = new Glow(this.scene, this.world);
+    this.fx = new FX(this.scene, this.world, { camera: this.camera, low: this.settings.quality === 'low' });
+    this.glow = new Glow(this.scene, this.world, { low: this.settings.quality === 'low' });
     { const w = this.world, orig = w.flushLights.bind(w); let pend = null; w.flushLights = () => { const had = w.lost.length; orig(); if (had && !pend) pend = setTimeout(() => { pend = null; this.glow.rebuild(); }, 200); }; }
     this.buildSky(); this.buildRain(); this.resize();
     await step(90, 'áudio');
@@ -98,29 +99,11 @@ class Game {
     }
   }
   buildSky() {
-    // gradient dome with storm-cloud bands (vertex colours, no textures)
-    const g = new THREE.SphereGeometry(120, 24, 12); const col = [];
-    const p = g.attributes.position; const c = new THREE.Color();
-    for (let i = 0; i < p.count; i++) {
-      const y = p.getY(i) / 120; const x = p.getX(i), z = p.getZ(i);
-      const n = Math.sin(x * 0.05) * Math.cos(z * 0.04) * 0.5 + 0.5;
-      c.setRGB(0.04 + 0.05 * n * (1 - y), 0.06 + 0.06 * n * (1 - y), 0.1 + 0.08 * n * (1 - y));
-      if (y < 0.1) c.setRGB(0.07, 0.09, 0.13);
-      col.push(c.r, c.g, c.b);
-    }
-    g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
-    this.skyMat = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false });
-    this.sky = new THREE.Mesh(g, this.skyMat); this.sky.renderOrder = -1; this.scene.add(this.sky);
+    // storm sky, weather, objective beacons and ambient life live in src/sky.js (Env); these methods only delegate
+    this.env = new Env(this); this.sky = this.env.sky; this.skyMat = this.env.skyMat;
     this.lightning = 0; this.nextLightning = 6;
   }
-  buildRain() {
-    const N = this.settings.quality === 'low' ? 400 : 1200; this.rainN = N;
-    this.rainP = new Float32Array(N * 6); this.rainOff = new Float32Array(N * 3);
-    for (let i = 0; i < N; i++) { this.rainOff[i * 3] = Math.random() * 40 - 20; this.rainOff[i * 3 + 1] = Math.random() * 20; this.rainOff[i * 3 + 2] = Math.random() * 40 - 20; }
-    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(this.rainP, 3).setUsage(THREE.DynamicDrawUsage));
-    this.rain = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: 0x8fb0d0, transparent: true, opacity: 0.35, fog: true }));
-    this.rain.frustumCulled = false; this.scene.add(this.rain);
-  }
+  buildRain() { this.env.buildRain(); this.rain = this.env.rain; }
 
   // ---------------- match ----------------
   startMatch() {
@@ -532,6 +515,7 @@ class Game {
       cx += px; cy += py; cz += pz;
     }
     const n = Math.ceil(cells.length / step); const c = new THREE.Vector3(cx / n, cy / n, cz / n);
+    this.fx.dust(c, cells.length);
     if (cells.length > 30) { this.audio.play('collapse', c, 1.1); this.trauma = Math.min(1, this.trauma + 0.3); }
     // crush entities under falling mass
     if (cells.length > 40) for (const e of this.entities) {
@@ -789,35 +773,7 @@ class Game {
       if (this.settings.showFps) $('fps').textContent = `${(1000 / avg).toFixed(0)} FPS · ${avg.toFixed(1)} ms · res ${(this.scale * 100) | 0}%`;
     }
   }
-  updateWeather(dt) {
-    // rain follows camera
-    const cp = this.camera.position; const P = this.rainP, O = this.rainOff;
-    const top = this.colTop;
-    for (let i = 0; i < this.rainN; i++) {
-      O[i * 3 + 1] -= dt * 22; if (O[i * 3 + 1] < -4) O[i * 3 + 1] += 22;
-      const x = cp.x + O[i * 3] - 1.5, z = cp.z + O[i * 3 + 2]; let y = cp.y + O[i * 3 + 1];
-      const cx = (x / VS) | 0, cz = (z / VS) | 0;
-      if (top && cx >= 0 && cz >= 0 && cx < SX && cz < SZ && y < top[cz * SX + cx] * VS) y = -100;
-      P[i * 6] = x; P[i * 6 + 1] = y; P[i * 6 + 2] = z; P[i * 6 + 3] = x + 0.08; P[i * 6 + 4] = y + 0.55; P[i * 6 + 5] = z;
-    }
-    this.rain.geometry.attributes.position.needsUpdate = true;
-    // lightning: double-strobe, brightens baked world via material colour multiplier + delayed thunder
-    this.nextLightning -= dt;
-    if (this.nextLightning <= 0) {
-      this.nextLightning = 9 + Math.random() * 16; this.lightning = 1; this.lightningPh = 0;
-      const dist = 300 + Math.random() * 900; // metres → thunder delay = d / 343
-      setTimeout(() => this.audio.play('thunder', null, 0.84 * (1 - dist / 1400) + 0.24, 1, 0.8), dist / 343 * 1000);
-    }
-    if (this.lightning > 0) {
-      this.lightningPh += dt; const k = this.lightningPh;
-      const I = (k < 0.06 ? 1 : k < 0.12 ? 0.2 : k < 0.2 ? 0.8 : Math.max(0, 0.8 - (k - 0.2) * 3));
-      if (k > 0.5) this.lightning = 0;
-      const m = 1 + I * 1.6; this.world.mat.color.setRGB(m, m, m * 1.05);
-      this.scene.background.setRGB(0.04 + I * 0.4, 0.07 + I * 0.45, 0.12 + I * 0.55);
-      this.scene.fog.color.setRGB(0.05 + I * 0.3, 0.08 + I * 0.33, 0.13 + I * 0.4);
-      this.skyMat.color.setScalar(1 + I * 5);
-    } else { this.world.mat.color.setRGB(1, 1, 1); this.skyMat.color.setScalar(1); this.scene.background.copy(this.skyCol); this.scene.fog.color.setHex(0x0d1522); }
-  }
+  updateWeather(dt) { this.env.update(dt); }
   update(dt) {
     this.time += dt; const now = this.time; const p = this.player;
     if (this.spawnProtect > 0) this.spawnProtect -= dt;
