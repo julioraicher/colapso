@@ -388,7 +388,7 @@ class Game {
       const dmg = damageAt(D, dist) * (res.head ? D.head : 1) * (0.55 + 0.45 * vr * vr);
       this.fx.blood(end, d);
       const wasAlive = hitE.alive;
-      hitE.hurt(dmg, this.time, shooter);
+      hitE.hurt(dmg, this.time, shooter, { head: res.head });
       if (hitE.isBot && !hitE.alive && wasAlive) { hitE.fallDir = 1; this.onKill(shooter, hitE, res.head, dist); }
       if (shooter === this.pent || shooter === this.echo) { this.hud.hit(!hitE.alive, res.head); this.audio.play(hitE.alive ? 'hit' : 'kill', null, 0.5, res.head ? 1.3 : 1, 0); }
       else this.audio.play('flesh', end, 0.7);
@@ -517,7 +517,7 @@ class Game {
       if (e.team === owner.team && e !== owner) continue; // no friendly fire (self-damage allowed)
       let dmg = 140 * Math.pow(1 - d / R, 1.4) * (power > 1.4 ? 1.15 : 1);
       if (e === this.pent && this.cls === 'engenheiro') dmg *= 0.6;
-      const was = e.alive; e.hurt(dmg, this.time, owner);
+      const was = e.alive; e.hurt(dmg, this.time, owner, { blast: c });
       if (e.isBot && was && !e.alive) { e.fallDir = 1; this.onKill(owner, e, false); }
       if (owner === this.pent && e !== this.pent) this.hud.hit(!e.alive, false);
     }
@@ -710,7 +710,7 @@ class Game {
         this.audio.play('explosion', c, 2.5, 0.8, 0.8);
         const step = Math.max(1, Math.floor(res.removed.length / 120));
         for (let i = 0; i < res.removed.length; i += step) { const q = res.removed[i]; const px = (q.x + .5) * VS, py = (q.y + .5) * VS, pz = (q.z + .5) * VS; const dx = px - c.x, dy = py - c.y, dz = pz - c.z, L = Math.hypot(dx, dy, dz) + .1; this.fx.debris(px, py, pz, dx / L * 12, dy / L * 10 + 6, dz / L * 12, q.m, 0.6 + Math.random() * 0.6, 6); }
-        for (const e of this.entities) { if (!e.alive) continue; const d = e.pos.distanceTo(c); if (d < r * 2.2) { const was = e.alive; e.hurt(200 * (1 - d / (r * 2.2)) + 20, this.time, null); if (e.isBot && was && !e.alive) this.hud.feed('REATOR', e.name, -1, false, false, false); } }
+        for (const e of this.entities) { if (!e.alive) continue; const d = e.pos.distanceTo(c); if (d < r * 2.2) { const was = e.alive; e.hurt(200 * (1 - d / (r * 2.2)) + 20, this.time, null, { blast: c }); if (e.isBot && was && !e.alive) this.hud.feed('REATOR', e.name, -1, false, false, false); } }
         const pd = this.player.eye.distanceTo(c); this.trauma = 1; this.hud.flash(Math.max(0, 0.9 - pd / 60));
         E.k++; E.t = 0.35 + Math.random() * 0.3;
         if (E.k >= seq.length) {
