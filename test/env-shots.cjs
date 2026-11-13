@@ -18,7 +18,7 @@ const fs = require('fs');
   await pg.goto('file://' + path.resolve(dist, 'index.html'));
   await pg.waitForFunction(() => window.__game && window.__game.state === 'menu', null, { timeout: 120000 });
   await pg.evaluate(() => {
-    const g = window.__game; g.testMode = true; g.startMatch(); g.deploy(); g.spawnProtect = 999;
+    const g = window.__game; g.testMode = true; g.startMatch(); g.deploy(); g.spawnProtect = 999; g.loop = () => {};   // freeze the real-time loop: frames only advance when a shot steps them
     for (const b of g.bots) { b.alive = false; b.model.visible = false; b.respawnT = 999; }
     window.V3 = (x, y, z) => new g.player.pos.constructor(x, y, z);
   });
@@ -41,13 +41,13 @@ const fs = require('fs');
       g.render();
       const r = { calls: g.renderer.info.render.calls, tris: g.renderer.info.render.triangles, pts: g.renderer.info.render.points, lines: g.renderer.info.render.lines };
       if (s.perf) {
-        const gl = g.renderer.getContext(); const px = new Uint8Array(4); let tu = 0, tr = 0, worst = 0;
+        const gl = g.renderer.getContext(); const px = new Uint8Array(4); let tu = 0, tr = 0, worst = 0; const ts = [];
         for (let i = 0; i < s.perf; i++) {
           if (s.x !== undefined && !s.free) pose(); if (each) each(g, V3, i, s);
           const t0 = performance.now(); g.update(dt); g.world.update(4); const t1 = performance.now(); g.render(); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); const t2 = performance.now();
-          tu += t1 - t0; tr += t2 - t1; worst = Math.max(worst, t2 - t0);
+          tu += t1 - t0; tr += t2 - t1; worst = Math.max(worst, t2 - t0); ts.push(t2 - t1);
         }
-        r.updMs = +(tu / s.perf).toFixed(3); r.renMs = +(tr / s.perf).toFixed(2); r.worstMs = +worst.toFixed(1);
+        r.updMs = +(tu / s.perf).toFixed(3); r.renMs = +(tr / s.perf).toFixed(2); r.worstMs = +worst.toFixed(1); ts.sort((x, y) => x - y); r.medMs = +ts[ts.length >> 1].toFixed(1); r.minMs = +ts[0].toFixed(1);
       }
       return r;
     }, s);

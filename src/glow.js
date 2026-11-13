@@ -37,7 +37,7 @@ export class Glow {
       fragmentShader: `uniform sampler2D map; varying vec3 vC; varying float vF; void main(){ vec4 t = texture2D(map, gl_PointCoord); gl_FragColor = vec4(vC * t.a * vF, 1.0); }`,
       blending: THREE.AdditiveBlending, depthWrite: false, transparent: true });
     this.reflMat = new THREE.MeshBasicMaterial({ map: radialTex(true), vertexColors: true, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: true, polygonOffset: true, polygonOffsetFactor: -2 });
-    this.shafts = new Beams(scene, this.maxShafts, { rain: true, fall: 1.15, fog: 0.7, order: 3 });
+    this.shafts = new Beams(scene, this.maxShafts, { rain: true, fog: 0.7, order: 3 });
     this.rebuild();
   }
   setScale(h) { this.haloMat.uniforms.scale.value = h / 2; }

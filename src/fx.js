@@ -33,7 +33,7 @@ function puffTex(seed, blobs = 9) {
   return new THREE.CanvasTexture(c);
 }
 // decal atlas, 4 x 2 cells of 16 x 16 chunky pixels: 0 stone hole, 1 metal dent, 2 wood, 3 glass crack,
-// 4 soft ground, 5 / 6 charred voxel face, 7 charred fringe (dithered)
+// 4 soft ground, 5 / 6 / 7 charred voxel face
 function decalAtlas() {
   const c = canvas(256, 128), g = c.getContext('2d'), R = rng(99);
   const px = (cx, cy, x, y, col) => { if (x < 0 || y < 0 || x > 15 || y > 15) return; g.fillStyle = col; g.fillRect(cx * 64 + x * 4, cy * 64 + y * 4, 4, 4); };
@@ -42,14 +42,12 @@ function decalAtlas() {
   blob(1, 0, 4.6, 'rgba(8,8,10,0.4)', 0.55, 2.6); blob(1, 0, 3.1, 'rgba(176,186,204,0.5)', 0.7, 1.9); blob(1, 0, 1.9, 'rgba(4,5,7,0.96)');
   for (let i = 0; i < 9; i++) { const x = 5 + (R() * 6 | 0), l = 2 + (R() * 4 | 0), up = R() < 0.5; for (let k = 0; k < l; k++) px(2, 0, x, up ? 6 - k : 9 + k, R() < 0.6 ? 'rgba(196,164,118,0.5)' : 'rgba(20,12,6,0.6)'); }
   blob(2, 0, 2.0, 'rgba(10,6,3,0.95)');
-  for (let i = 0; i < 8; i++) { const a = i / 8 * 6.283 + R() * 0.5, l = 4 + R() * 3.5; for (let k = 1.2; k < l; k += 0.7) px(3, 0, Math.round(7.5 + Math.cos(a) * k), Math.round(7.5 + Math.sin(a) * k), 'rgba(235,250,255,' + (0.85 - k / l * 0.4).toFixed(2) + ')'); }
+  for (let i = 0; i < 8; i++) { const a = i / 8 * 6.283 + R() * 0.5, l = 4 + R() * 3.5; for (let k = 1.2; k < l; k += 0.7) px(3, 0, Math.round(7.5 + Math.cos(a) * k), Math.round(7.5 + Math.sin(a) * k), 'rgba(225,244,255,' + (0.62 - k / l * 0.3).toFixed(2) + ')'); }
   blob(3, 0, 1.3, 'rgba(8,16,24,0.85)');
   blob(0, 1, 4.4, 'rgba(10,9,8,0.36)', 0.5, 2.4); blob(0, 1, 2.7, 'rgba(8,7,6,0.8)');
-  for (const cx of [1, 2, 3]) for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
-    const edge = x === 0 || y === 0 || x === 15 || y === 15, r = R();
-    if (cx === 3 && r < 0.42) continue;
-    const a = ((edge ? 0.62 : 0.84) + R() * 0.14).toFixed(2);
-    px(cx, 1, x, y, R() < 0.06 ? 'rgba(62,58,55,' + a + ')' : 'rgba(7,6,6,' + a + ')');
+  for (const cx of [1, 2, 3]) {
+    g.fillStyle = 'rgba(8,7,7,0.86)'; g.fillRect(cx * 64, 64, 64, 64);
+    for (let i = 0; i < 12; i++) { const x = (R() * 14) | 0, y = (R() * 14) | 0, s = 1 + ((R() * 3) | 0); g.fillStyle = R() < 0.5 ? 'rgba(0,0,0,0.25)' : 'rgba(34,30,28,0.2)'; g.fillRect(cx * 64 + x * 4, 64 + y * 4, s * 4, s * 4); }
   }
   const t = new THREE.CanvasTexture(c); t.flipY = false; t.generateMipmaps = false; t.minFilter = THREE.LinearFilter; t.magFilter = THREE.NearestFilter; return t;
 }
@@ -114,7 +112,9 @@ export class Particles {
     this.base = new Float32Array(n * 3); this.end = new Float32Array(n * 3);
     this.life = new Float32Array(n); this.max = new Float32Array(n); this.grav = new Float32Array(n); this.drag = new Float32Array(n);
     this.s0 = new Float32Array(n); this.s1 = new Float32Array(n); this.al = new Float32Array(n); this.spin = new Float32Array(n); this.bnc = new Uint8Array(n);
-    const g = quadGeo(n);
+    // free list: live particles stay packed at low indices, so only [0, top) is simulated, uploaded and drawn
+    this.free = new Uint16Array(n); for (let k = 0; k < n; k++) this.free[k] = n - 1 - k; this.nfree = n; this.top = 0;
+    const g = this.g = quadGeo(n);
     this.aP = inst(g, 'iPos', this.p, 3); this.aC = inst(g, 'iCol', this.c, 4); this.aS = inst(g, 'iSize', this.s, 2);
     this.aV = opt.streak ? inst(g, 'iVel', this.v, 3) : null;
     const defines = {}; if (add) defines.ADDITIVE = 1; if (opt.streak) defines.STREAK = 1; if (opt.nearFade) defines.NEARFADE = 1;
@@ -124,7 +124,8 @@ export class Particles {
   }
   fade(k, r, g, b) { const E = this.end, k3 = k * 3; E[k3] = r; E[k3 + 1] = g; E[k3 + 2] = b; }
   emit(x, y, z, vx, vy, vz, r, g, b, life, grav = 9.8, drag = 0, s0 = 1, s1 = s0) {
-    const k = this.i, k3 = k * 3; this.i = (k + 1) % this.n;
+    let k; if (this.nfree > 0) k = this.free[--this.nfree]; else { k = this.i; this.i = (k + 1) % this.n; }   // pool full: recycle round-robin
+    const k3 = k * 3; if (k >= this.top) this.top = k + 1;
     const p = this.p, v = this.v, B = this.base, E = this.end;
     p[k3] = x; p[k3 + 1] = y; p[k3 + 2] = z; v[k3] = vx; v[k3 + 1] = vy; v[k3 + 2] = vz;
     B[k3] = E[k3] = r; B[k3 + 1] = E[k3 + 1] = g; B[k3 + 2] = E[k3 + 2] = b;
@@ -138,13 +139,14 @@ export class Particles {
   update(dt) {
     if (this.busy < -0.25) { if (this.pts.visible) this.pts.visible = false; return; }   // idle pools cost no draw call
     this.busy -= dt;
-    const { p, v, c, s, life, max, base, end, grav, drag, s0, s1, al, bnc, spin, n, additive, w } = this;
-    const ax = this.ax * dt, az = this.az * dt;
-    for (let k = 0; k < n; k++) {
+    const { p, v, c, s, life, max, base, end, grav, drag, s0, s1, al, bnc, spin, additive, w, free } = this;
+    const ax = this.ax * dt, az = this.az * dt, top = this.top; let hi = 0;
+    for (let k = 0; k < top; k++) {
       const k2 = k * 2;
-      if (life[k] <= 0) { s[k2] = 0; continue; }
+      if (life[k] <= 0) continue;
       life[k] -= dt;
-      if (life[k] <= 0) { s[k2] = 0; continue; }
+      if (life[k] <= 0) { s[k2] = 0; free[this.nfree++] = k; continue; }
+      hi = k + 1;
       const k3 = k * 3, k4 = k * 4;
       if (drag[k] > 0) { const d = Math.exp(-drag[k] * dt); v[k3] *= d; v[k3 + 1] *= d; v[k3 + 2] *= d; }
       v[k3] += ax; v[k3 + 1] -= grav[k] * dt; v[k3 + 2] += az;
@@ -160,7 +162,11 @@ export class Particles {
       c[k4 + 3] = (additive ? f : Math.min(1, f * 1.6) * Math.min(1, (max[k] - life[k]) * 8)) * al[k];
       s[k2] = s0[k] + (s1[k] - s0[k]) * (1 - f); s[k2 + 1] += spin[k] * dt;
     }
-    this.aP.needsUpdate = this.aC.needsUpdate = this.aS.needsUpdate = true; if (this.aV) this.aV.needsUpdate = true;
+    this.top = hi; this.g.instanceCount = hi;
+    const n = Math.max(top, 1);
+    this.aP.clearUpdateRanges(); this.aP.addUpdateRange(0, n * 3); this.aC.clearUpdateRanges(); this.aC.addUpdateRange(0, n * 4); this.aS.clearUpdateRanges(); this.aS.addUpdateRange(0, n * 2);
+    this.aP.needsUpdate = this.aC.needsUpdate = this.aS.needsUpdate = true;
+    if (this.aV) { this.aV.clearUpdateRanges(); this.aV.addUpdateRange(0, n * 3); this.aV.needsUpdate = true; }
   }
 }
 
@@ -181,11 +187,12 @@ const RFRAG = `
 varying vec2 vUv; varying vec3 vC; varying float vTh;
 void main() {
   float d = length(vUv); float a;
-  if (vTh >= 1.0) { a = max(0.0, 1.0 - d); a *= a; }
+  if (vTh > 1.5) { a = max(0.0, 1.0 - d); a *= a; }
   else { float e = (d - 1.0 + vTh) / vTh; a = (e <= 0.0 || e >= 1.0) ? 0.0 : smoothstep(0.0, 0.7, e) * (1.0 - smoothstep(0.82, 1.0, e)); }
+  if (a < 0.004) discard;
   gl_FragColor = vec4(vC * a, 1.0);
 }`;
-// Additive rings: flat on the ground (default) or camera-facing. thick >= 1 draws a filled soft disc.
+// Additive rings: flat on the ground (default) or camera-facing. thick = 2 draws a filled soft disc.
 export class Rings {
   constructor(scene, n = 48, order = 3) {
     this.n = n; this.i = 0; this.busy = 0.3;
@@ -193,7 +200,7 @@ export class Rings {
     this.r0 = new Float32Array(n); this.r1 = new Float32Array(n); this.life = new Float32Array(n); this.max = new Float32Array(n); this.a0 = new Float32Array(n); this.delay = new Float32Array(n);
     const g = quadGeo(n);
     this.aP = inst(g, 'iPos', this.p, 3); this.aR = inst(g, 'iPar', this.par, 4); this.aC = inst(g, 'iCol', this.col, 3);
-    this.m = new THREE.ShaderMaterial({ uniforms: { fogDensity: FOGD }, vertexShader: RVERT, fragmentShader: RFRAG, transparent: true, blending: ADD, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+    this.m = new THREE.ShaderMaterial({ uniforms: { fogDensity: FOGD }, vertexShader: RVERT, fragmentShader: RFRAG, transparent: true, blending: ADD, depthWrite: false, side: THREE.DoubleSide, forceSinglePass: true, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
     this.mesh = new THREE.Mesh(g, this.m); this.mesh.frustumCulled = false; this.mesh.renderOrder = order; scene.add(this.mesh);
   }
   emit(x, y, z, r0, r1, life, r, g, b, alpha = 1, thick = 0.2, billboard = false, delay = 0) {
@@ -248,17 +255,17 @@ void main() { vec4 t = texture2D(map, vUv); float a = t.a * vA; if (a < 0.02) di
 // Every decal remembers its voxel; it is released as soon as that voxel disappears.
 export class Decals {
   constructor(scene, world, nHoles = 192, nChar = 960) {
-    const n = nHoles + nChar; this.w = world; this.n = n; this.NH = nHoles; this.NC = nChar; this.hi = 0; this.ci = 0; this.ri = 0; this.dirty = true;
+    const n = nHoles + nChar; this.w = world; this.n = n; this.NH = nHoles; this.NC = nChar; this.hi = 0; this.ci = 0; this.ri = 0; this.dirty = true; this.live = 0; this.cTop = 0;
     this.p = new Float32Array(n * 3); this.nr = new Float32Array(n * 3); this.par = new Float32Array(n * 4); this.vox = new Int16Array(n * 3);
     for (let k = 0; k < n; k++) this.nr[k * 3 + 1] = 1;
-    const g = quadGeo(n);
+    const g = this.g = quadGeo(n);
     this.aP = inst(g, 'iPos', this.p, 3); this.aN = inst(g, 'iN', this.nr, 3); this.aR = inst(g, 'iPar', this.par, 4);
     this.m = new THREE.ShaderMaterial({ uniforms: { map: { value: decalAtlas() }, fogDensity: FOGD }, vertexShader: DVERT, fragmentShader: DFRAG,
-      transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+      transparent: true, depthWrite: false, side: THREE.DoubleSide, forceSinglePass: true, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
     this.mesh = new THREE.Mesh(g, this.m); this.mesh.frustumCulled = false; this.mesh.renderOrder = 1; scene.add(this.mesh);
   }
   _put(k, x, y, z, nx, ny, nz, size, rot, alpha, cell, vx, vy, vz) {
-    const k3 = k * 3, k4 = k * 4;
+    const k3 = k * 3, k4 = k * 4; if (this.par[k4] <= 0) this.live++;
     this.p[k3] = x; this.p[k3 + 1] = y; this.p[k3 + 2] = z; this.nr[k3] = nx; this.nr[k3 + 1] = ny; this.nr[k3 + 2] = nz;
     this.par[k4] = size; this.par[k4 + 1] = rot; this.par[k4 + 2] = alpha; this.par[k4 + 3] = cell;
     this.vox[k3] = vx; this.vox[k3 + 1] = vy; this.vox[k3 + 2] = vz; this.dirty = true;
@@ -275,13 +282,13 @@ export class Decals {
   }
   // scorch the top face of voxel (vx, vy, vz)
   char(vx, vy, vz, alpha, cell) {
-    const k = this.NH + this.ci; this.ci = (this.ci + 1) % this.NC;
+    const k = this.NH + this.ci; this.ci = (this.ci + 1) % this.NC; if (this.ci > this.cTop || this.ci === 0) this.cTop = this.ci || this.NC;
     this._put(k, (vx + 0.5) * VS, (vy + 1) * VS, (vz + 0.5) * VS, 0, 1, 0, VS * 1.01, ((Math.random() * 4) | 0) * 1.5708, alpha, cell, vx, vy, vz);
   }
-  _check(k) { const k3 = k * 3; if (this.par[k * 4] > 0 && !this.w.get(this.vox[k3], this.vox[k3 + 1], this.vox[k3 + 2])) { this.par[k * 4] = 0; this.dirty = true; } }
+  _check(k) { const k3 = k * 3; if (this.par[k * 4] > 0 && !this.w.get(this.vox[k3], this.vox[k3 + 1], this.vox[k3 + 2])) { this.par[k * 4] = 0; this.live--; this.dirty = true; } }
   sweep() { for (let k = 0; k < this.n; k++) this._check(k); }
   roll(count) { for (let j = 0; j < count; j++) { this._check(this.ri); this.ri = (this.ri + 1) % this.n; } }
-  flush() { if (this.dirty) { this.dirty = false; this.aP.needsUpdate = this.aN.needsUpdate = this.aR.needsUpdate = true; } }
+  flush() { if (this.dirty) { this.dirty = false; this.mesh.visible = this.live > 0; this.g.instanceCount = this.NH + this.cTop; this.aP.needsUpdate = this.aN.needsUpdate = this.aR.needsUpdate = true; } }
 }
 
 // ------------------------------------------------------------------ light-beam cards
@@ -306,25 +313,25 @@ void main() {
   vC = iC.rgb * (nf * exp(-fogK * dist * dist));
 }`;
 const BFRAG = `
-uniform float time; uniform float fall;
+uniform float time;
 varying vec2 vUv; varying vec3 vC; varying float vPh;
 void main() {
   float e = 1.0 - abs(vUv.x * 2.0 - 1.0);
-  float a = e * e * (3.0 - 2.0 * e) * smoothstep(0.0, 0.05, vUv.y) * pow(1.0 - vUv.y, fall);
+  float a = e * e * (3.0 - 2.0 * e) * min(1.0, vUv.y * 20.0) * (1.0 - vUv.y);
 #ifdef RAIN
-  a *= 0.7 + 0.3 * sin(vUv.x * 41.0 + vPh * 9.0 + 1.6 * sin(vUv.y * 9.0 - time * 8.0 + vUv.x * 13.0));
+  a *= 0.72 + 0.28 * sin(vUv.x * 41.0 + vPh * 9.0 + vUv.y * 9.0 - time * 8.0);
 #endif
   gl_FragColor = vec4(vC * a, 1.0);
 }`;
 export class Beams {
-  // opt: rain (streaky modulation), fall (falloff exponent along the beam), fog (0..1 share of scene fog), order
+  // opt: rain (streaky modulation), fog (0..1 share of scene fog), order
   constructor(scene, n, opt = {}) {
     this.n = n;
     this.o = new Float32Array(n * 4); this.d = new Float32Array(n * 4); this.r = new Float32Array(n * 4); this.c = new Float32Array(n * 4);
     const g = this.g = quadGeo(n);
     this.aO = inst(g, 'iO', this.o, 4); this.aD = inst(g, 'iD', this.d, 4); this.aR = inst(g, 'iR', this.r, 4); this.aC = inst(g, 'iC', this.c, 4);
-    this.m = new THREE.ShaderMaterial({ defines: opt.rain ? { RAIN: 1 } : {}, uniforms: { time: { value: 0 }, fall: { value: opt.fall || 1 }, fogK: { value: 0.022 * 0.022 * (opt.fog ?? 0.5) } },
-      vertexShader: BVERT, fragmentShader: BFRAG, transparent: true, blending: ADD, depthWrite: false, side: THREE.DoubleSide });
+    this.m = new THREE.ShaderMaterial({ defines: opt.rain ? { RAIN: 1 } : {}, uniforms: { time: { value: 0 }, fogK: { value: 0.022 * 0.022 * (opt.fog ?? 0.5) } },
+      vertexShader: BVERT, fragmentShader: BFRAG, transparent: true, blending: ADD, depthWrite: false, side: THREE.DoubleSide, forceSinglePass: true });
     this.mesh = new THREE.Mesh(g, this.m); this.mesh.frustumCulled = false; this.mesh.renderOrder = opt.order || 3; scene.add(this.mesh);
   }
   set(i, ox, oy, oz, dx, dy, dz, len, r0, r1, r, g, b, near = 0, sweepAmp = 0, sweepSpeed = 0, phase = 0) {
@@ -358,7 +365,10 @@ void main() {
 }`;
 const TFRAG = `
 varying vec4 vC; varying float vX;
-void main() { float e = min(1.0, (1.0 - abs(vX)) * 2.5); gl_FragColor = vec4(vC.rgb * (e * vC.a), 1.0); }`;
+void main() {
+  float x = abs(vX), core = 1.0 - smoothstep(0.1, 0.3, x), halo = 1.0 - x; halo *= halo;
+  gl_FragColor = vec4((vC.rgb * (halo * 0.4) + mix(vC.rgb, vec3(1.0), 0.5) * core) * vC.a, 1.0);
+}`;
 
 // material classes for bullet impacts
 const KIND = new Uint8Array(64);   // 0 stone, 1 metal, 2 wood, 3 glass, 4 water, 5 soft, 6 leaf, 7 lamp
@@ -400,7 +410,7 @@ export class FX {
     this.tL = new Float32Array(this.TN); this.tM = new Float32Array(this.TN); this.tI = new Float32Array(this.TN); this.ti = 0; this.tBusy = 0.3;
     const tg = quadGeo(this.TN);
     this.aTA = inst(tg, 'iA', this.tA, 4); this.aTB = inst(tg, 'iB', this.tB, 3); this.aTC = inst(tg, 'iC', this.tC, 4);
-    this.tMat = new THREE.ShaderMaterial({ uniforms: { px: { value: 0.0028 } }, vertexShader: TVERT, fragmentShader: TFRAG, transparent: true, blending: ADD, depthWrite: false, side: THREE.DoubleSide });
+    this.tMat = new THREE.ShaderMaterial({ uniforms: { px: { value: 0.0028 } }, vertexShader: TVERT, fragmentShader: TFRAG, transparent: true, blending: ADD, depthWrite: false, side: THREE.DoubleSide, forceSinglePass: true });
     this.tracers = new THREE.Mesh(tg, this.tMat); this.tracers.frustumCulled = false; this.tracers.renderOrder = 6; scene.add(this.tracers);
     // flash lights (light Lambert entities: bots, viewmodel, debris)
     this.flash = new THREE.PointLight(0xffc77a, 0, 14, 1.6); scene.add(this.flash); this.flashT = 0;
@@ -408,13 +418,20 @@ export class FX {
     // the same two lights also reach the baked voxel world: slot 0 = muzzle flash, slot 1 = explosion / fire.
     // Flat normals come from screen-space derivatives so a flash never shows through to the far side of a wall.
     this.wlP = [new THREE.Vector4(0, -99, 0, 1), new THREE.Vector4(0, -99, 0, 1)]; this.wlC = [new THREE.Vector3(), new THREE.Vector3()]; this.wlOn = { value: 0 };
-    const wlP = this.wlP, wlC = this.wlC, wlOn = this.wlOn;
-    if (world.mat) {
-      world.mat.onBeforeCompile = (sh) => {
-        sh.uniforms.wlP = { value: wlP }; sh.uniforms.wlC = { value: wlC }; sh.uniforms.wlOn = wlOn;
-        sh.vertexShader = 'varying vec3 vWP;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vWP = (modelMatrix * vec4(transformed, 1.0)).xyz;');
-        sh.fragmentShader = 'varying vec3 vWP; uniform vec4 wlP[2]; uniform vec3 wlC[2]; uniform float wlOn;\n' + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
-  if (wlOn > 0.0) {
+    // The light code sits behind a define that is switched on only while something burns (plus a short hold), so an
+    // idle scene runs the stock world shader. 'low' never gets the variant at all.
+    this.wlMat = null; this.wlActive = false; this.wlHold = 0; this.wlOff = false;
+    const wlP = this.wlP, wlC = this.wlC;
+    if (world.mat && !opt.low) {
+      const mat = this.wlMat = world.mat, prev = mat.onBeforeCompile;
+      mat.defines = mat.defines || {};
+      mat.onBeforeCompile = (sh, renderer) => {
+        if (prev) prev.call(mat, sh, renderer);
+        sh.uniforms.wlP = { value: wlP }; sh.uniforms.wlC = { value: wlC };
+        sh.vertexShader = '#ifdef WL\nvarying vec3 vWP;\n#endif\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n#ifdef WL\n  vWP = (modelMatrix * vec4(transformed, 1.0)).xyz;\n#endif');
+        sh.fragmentShader = '#ifdef WL\nvarying vec3 vWP; uniform vec4 wlP[2]; uniform vec3 wlC[2];\n#endif\n' + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+#ifdef WL
+  {
     vec3 wN = normalize(cross(dFdx(vWP), dFdy(vWP)));
     for (int i = 0; i < 2; i++) {
       vec3 dv = wlP[i].xyz - vWP; float d2 = dot(dv, dv);
@@ -422,14 +439,15 @@ export class FX {
       float nl = clamp(dot(wN, dv) * inversesqrt(d2 + 0.01) * 0.9 + 0.1, 0.0, 1.0);
       diffuseColor.rgb += (diffuseColor.rgb * 1.5 + 0.045) * wlC[i] * (at * at * nl);
     }
-  }`);
+  }
+#endif`);
       };
-      world.mat.needsUpdate = true;
+      mat.needsUpdate = true;
     }
     // timed emitters: lingering fires, smoke columns, delayed dust clouds
     this.em = []; for (let i = 0; i < 16; i++) this.em.push({ type: 0, x: 0, y: 0, z: 0, t: 0, dur: 0, acc: 0, acc2: 0, size: 1, delay: 0 });
     this.lastBoomT = -1; this.lastBoomP = new THREE.Vector3(); this.lastQT = -9; this.lastQP = new THREE.Vector3(); this.lastQM = false;
-    this.tv = new THREE.Vector3(); this.cp = new THREE.Vector3(0, -999, 0);
+    this.tv = new THREE.Vector3(); this.cp = new THREE.Vector3(0, -999, 0); this.fireLit = null;
   }
 
   // ---- tracers. col: team index (0 KAPPA, 1 OMEGA) or an rgb array. The two legacy arrays map to the team colours.
@@ -437,7 +455,7 @@ export class FX {
     let r = 0.55, g = 0.92, bl = 1.0;                                                     // KAPPA: cyan-white
     if (col === 1 || (col && col.length && col[1] < 0.7 && col[0] > 0.9 && col[2] < 0.4)) { r = 1.0; g = 0.52; bl = 0.17; }   // OMEGA: orange
     else if (col && col.length && !(col[0] === 1 && col[1] === 0.85)) { r = col[0]; g = col[1]; bl = col[2]; }
-    this._trace(a, b, r, g, bl, 0.034, 0.055, 0.95);
+    this._trace(a, b, r, g, bl, 0.2, 0.06, 1.15);
   }
   _trace(a, b, r, g, bl, width, life, intensity) {
     const k = this.ti, k4 = k * 4, k3 = k * 3; this.ti = (k + 1) % this.TN;
@@ -523,14 +541,13 @@ export class FX {
     }
     this.glow.emit(p.x, p.y, p.z, 0, 0, 0, col[0], col[1], col[2], 0.3, 0, 0, 0.6, 1.5);
     // ripple: when the burst sits on the camera (first person) the ring opens just ahead of the eye
-    let rx = p.x, ry = p.y, rz = p.z, r1 = 2.2;
-    if (cam && cam.position.distanceToSquared(p) < 0.6) { cam.getWorldDirection(this.tv); rx += this.tv.x * 1.7; ry += this.tv.y * 1.7; rz += this.tv.z * 1.7; r1 = 2.6; }
-    this.rings.emit(rx, ry, rz, 0.15, r1, 0.5, col[0], col[1], col[2], 0.75, 0.16, true);
-    this.rings.emit(rx, ry, rz, 0.1, r1 * 0.7, 0.55, mag ? 0.3 : 1, mag ? 1 : 0.4, 1, 0.5, 0.1, true, 0.09);
+    let rx = p.x, ry = p.y, rz = p.z, r1 = 2.2, ra = 0.75, rt = 0.16;
+    if (cam && cam.position.distanceToSquared(p) < 0.6) { cam.getWorldDirection(this.tv); rx += this.tv.x * 1.7; ry += this.tv.y * 1.7; rz += this.tv.z * 1.7; r1 = 2.6; ra = 0.4; rt = 0.09; }
+    this.rings.emit(rx, ry, rz, 0.15, r1, 0.5, col[0], col[1], col[2], ra, rt, true);
+    this.rings.emit(rx, ry, rz, 0.1, r1 * 0.7, 0.55, mag ? 0.3 : 1, mag ? 1 : 0.4, 1, ra * 0.66, rt * 0.6, true, 0.09);
     const dt = this.t - this.lastQT, dd = p.distanceTo(this.lastQP);
     if (dt < 1.5 && this.lastQM === mag && dd > 1.2 && dd < 30) {
-      this._trace(this.lastQP, p, col[0], col[1], col[2], 0.55, 0.5, 0.3);
-      this._trace(this.lastQP, p, 1, 1, 1, 0.09, 0.32, 0.5);
+      this._trace(this.lastQP, p, col[0], col[1], col[2], 0.6, 0.5, 0.45);
       const N = Math.min(26, (dd * 2.2) | 0);
       for (let i = 0; i < N; i++) { const f = R(); S.emit(this.lastQP.x + (p.x - this.lastQP.x) * f + (R() - 0.5) * 0.5, this.lastQP.y + (p.y - this.lastQP.y) * f + (R() - 0.5) * 0.9, this.lastQP.z + (p.z - this.lastQP.z) * f + (R() - 0.5) * 0.5, (R() - 0.5), (R() - 0.5), (R() - 0.5), col[0], col[1], col[2], 0.35 + R() * 0.5, 0, 1, 0.8, 0.2); }
     }
@@ -552,22 +569,23 @@ export class FX {
     }
     this.lastBoomT = this.t; this.lastBoomP.copy(p);
     // light: entities (point light) and voxels (injected light)
-    this.boom.position.copy(p); this.boom.intensity = 60; this.boomD = 0.45; this.boomT = this.boomD; this.boomK = 4.2;
-    this._light(1, p, 4.2, 2.5, 1.1, 5 + r * 3);
+    this.tv.set(p.x, p.y + r * 0.35, p.z);   // the light sits in the fireball, not on the ground
+    this.boom.position.copy(this.tv); this.boom.intensity = 60; this.boomD = 0.45; this.boomT = this.boomD; this.boomK = 4.2;
+    this._light(1, this.tv, 4.2, 2.5, 1.1, 5 + r * 3);
     // bright core flash, then the expanding fireball
     G.emit(p.x, p.y, p.z, 0, 0, 0, 1, 0.95, 0.8, 0.11, 0, 0, r * 1.5, r * 2.1);
-    const NF = Math.round((7 + r * 1.2) * (0.5 + 0.5 * q));
+    const NF = Math.round((10 + r * 1.6) * (0.5 + 0.5 * q));
     for (let i = 0; i < NF; i++) {
       const a = R() * 6.283, e = R() * 1.6 - 0.4, d = R() * r * 0.4, s = 1 + R() * 2.5;
-      const k = G.emit(p.x + Math.cos(a) * d, p.y + Math.sin(e) * d * 0.7 + 0.1, p.z + Math.sin(a) * d, Math.cos(a) * s, 1 + R() * 2.2, Math.sin(a) * s, 1, 0.62, 0.22, 0.34 + R() * 0.36, -1.5, 2.5, r * 0.42, r * (0.8 + R() * 0.35));
-      G.fade(k, 0.45, 0.07, 0.02); G.al[k] = 0.62;
+      const k = G.emit(p.x + Math.cos(a) * d, p.y + Math.sin(e) * d * 0.7 + 0.1, p.z + Math.sin(a) * d, Math.cos(a) * s, 1 + R() * 2.2, Math.sin(a) * s, 1, 0.62, 0.22, 0.4 + R() * 0.4, -1.5, 2.5, r * 0.5, r * (0.9 + R() * 0.4));
+      G.fade(k, 0.45, 0.07, 0.02); G.al[k] = 0.8;
     }
-    // smoke born lit by the fire, cooling to dark grey
-    const NS = Math.round((9 + r * 1.5) * q);
+    // smoke: dark from the start, in big soft puffs (the additive fireball drawn over it is what lights it from inside)
+    const NS = Math.round((11 + r * 1.3) * q);
     for (let i = 0; i < NS; i++) {
-      const a = R() * 6.283, d = R() * r * 0.5, s = 1.2 + R() * 3, g = 0.055 + R() * 0.04;
-      const k = M.emit(p.x + Math.cos(a) * d, p.y + R() * r * 0.45, p.z + Math.sin(a) * d, Math.cos(a) * s, 1 + R() * 2.4, Math.sin(a) * s, 0.5, 0.27, 0.11, 2.2 + R() * 2, -0.45, 1.1, r * 0.3, r * (0.62 + R() * 0.3));
-      M.fade(k, g, g, g * 1.1); M.al[k] = 0.95;
+      const a = R() * 6.283, d = R() * r * 0.5, s = 1.2 + R() * 3, g = 0.05 + R() * 0.04;
+      const k = M.emit(p.x + Math.cos(a) * d, p.y + R() * r * 0.45, p.z + Math.sin(a) * d, Math.cos(a) * s, 1 + R() * 2.4, Math.sin(a) * s, 0.27, 0.17, 0.11, 2 + R() * 1.7, -0.45, 1.1, r * 0.48, r * (0.8 + R() * 0.3));
+      M.fade(k, g, g, g * 1.1); M.al[k] = 1.25;
     }
     this._em(E_SMOKE, p.x, p.y, p.z, 2.4, Math.min(2.2, r / 3));
     // sparks with gravity and bounce, then slow embers
@@ -585,12 +603,12 @@ export class FX {
     const fy = Math.floor((p.y + 0.5) / VS);
     for (let i = 0; i < 4; i++) { const hgt = w.groundHeightAt(p.x + (i === 0 ? r : i === 1 ? -r : 0) * 1.3, p.z + (i === 2 ? r : i === 3 ? -r : 0) * 1.3, fy); if (hgt <= p.y + 0.7 && hgt > gy) gy = hgt; }
     if (gy > p.y - 1.8) {
-      this.rings.emit(p.x, gy + 0.06, p.z, r * 0.4, r * 2.7, 0.4, 1, 0.82, 0.55, 0.55, 0.2);
-      this.rings.emit(p.x, gy + 0.05, p.z, r * 2.2, r * 3.2, 0.34, 1, 0.6, 0.25, 0.5, 1);
+      this.rings.emit(p.x, gy + 0.06, p.z, r * 0.4, r * 2.3, 0.4, 1, 0.82, 0.55, 0.5, 0.13);
+      if (!this.wlMat || this.wlOff) this.rings.emit(p.x, gy + 0.05, p.z, r * 2.2, r * 3.2, 0.34, 1, 0.6, 0.25, 0.5, 2);   // fake pool of light where the voxel shader is not lit
     }
     this._scorch(p, r);
   }
-  // char the exposed top faces of the voxels around an explosion (dithered towards the rim)
+  // char the exposed top faces of the voxels around an explosion: whole faces, fading and thinning out towards the rim
   _scorch(p, r) {
     const w = this.w, D = this.decals, R = Math.random, rad = r * 1.45, Rv = Math.ceil(rad / VS), cx = Math.floor(p.x / VS), cz = Math.floor(p.z / VS);
     const yTop = Math.min(SY - 2, Math.floor((p.y + r * 0.6) / VS)), yBot = Math.max(1, Math.floor((p.y - r * 1.3) / VS));
@@ -605,7 +623,7 @@ export class FX {
       const ex = (x + 0.5) * VS - p.x, ey = (y + 1) * VS - p.y, ez = (z + 0.5) * VS - p.z;
       const a = 1 - Math.sqrt(ex * ex + ey * ey + ez * ez) / rad; if (a <= 0) continue;
       if (R() > keep || R() > a * 2.3) continue;
-      D.char(x, y, z, Math.min(0.92, 0.3 + a * 1.15), a > 0.42 ? (R() < 0.5 ? 5 : 6) : 7);
+      D.char(x, y, z, Math.min(0.9, 0.2 + a * 1.1 + R() * 0.12), 5 + ((R() * 3) | 0));
     }
   }
   _em(type, x, y, z, dur, size, delay = 0) {
@@ -625,7 +643,7 @@ export class FX {
     if (n < 10) return;
     const k = Math.min(1, n / 260), R = Math.random, M = this.smoke;
     const N0 = Math.round((2 + 4 * k) * this.q);
-    for (let i = 0; i < N0; i++) { const j = M.emit(c.x + (R() - 0.5) * 2, c.y + (R() - 0.5) * 1.5, c.z + (R() - 0.5) * 2, (R() - 0.5) * 1.5, -0.5 - R(), (R() - 0.5) * 1.5, 0.27, 0.265, 0.26, 1.5 + R(), 0.6, 1, 0.45, 1.2); M.al[j] = 0.6; }
+    for (let i = 0; i < N0; i++) { const j = M.emit(c.x + (R() - 0.5) * 2, c.y + (R() - 0.5) * 1.5, c.z + (R() - 0.5) * 2, (R() - 0.5) * 1.5, -0.5 - R(), (R() - 0.5) * 1.5, 0.33, 0.32, 0.31, 1.5 + R(), 0.6, 1, 0.45, 1.2); M.al[j] = 1.0; }
     const gy = this.w.groundHeightAt(c.x, c.z, Math.max(0, Math.floor(c.y / VS)));
     this._em(E_DUST, c.x, gy, c.z, 0.01, 0.5 + k, Math.sqrt(2 * Math.max(0, c.y - gy) / 19) * 0.9);   // blooms when the mass lands
   }
@@ -635,31 +653,31 @@ export class FX {
     e.t -= dt;
     if (e.type === E_FIRE) {
       const s = e.size, k = Math.min(1, e.t / 1.6) * Math.min(1, (e.dur - e.t) * 3 + 0.3);
-      e.acc += dt * 24 * s * k * (0.4 + 0.6 * q);
+      e.acc += dt * 30 * s * k * (0.4 + 0.6 * q);
       while (e.acc >= 1) {
         e.acc -= 1; const a = R() * 6.283, d = R() * 0.45 * s;
-        const j = G.emit(e.x + Math.cos(a) * d, e.y + 0.1 + R() * 0.25, e.z + Math.sin(a) * d, (R() - 0.5) * 0.5, 1.1 + R() * 1.5, (R() - 0.5) * 0.5, 1, 0.62, 0.2, 0.36 + R() * 0.3, -2.2, 0.6, (0.4 + 0.2 * k) * s, 0.13 * s);
-        G.fade(j, 0.6, 0.09, 0.02); G.al[j] = 0.42;
+        const j = G.emit(e.x + Math.cos(a) * d, e.y + 0.1 + R() * 0.25, e.z + Math.sin(a) * d, (R() - 0.5) * 0.5, 1.4 + R() * 1.6, (R() - 0.5) * 0.5, 1, 0.62, 0.2, 0.36 + R() * 0.3, -2.2, 0.6, (0.7 + 0.25 * k) * s, 0.2 * s);
+        G.fade(j, 0.6, 0.09, 0.02); G.al[j] = 0.4;
       }
       e.acc2 += dt;
       if (e.acc2 > 0.1) {
         e.acc2 = 0;
-        if (R() < 0.3 * q + 0.1) { const g = 0.05 + R() * 0.03, j = M.emit(e.x + (R() - 0.5) * 0.4 * s, e.y + 1.0 * s, e.z + (R() - 0.5) * 0.4 * s, (R() - 0.5) * 0.4, 1.4 + R(), (R() - 0.5) * 0.4, 0.3, 0.15, 0.07, 2.2 + R(), -0.3, 0.6, 0.4 * s, 0.95 * s); M.fade(j, g, g, g * 1.1); M.al[j] = 0.75; }
+        if (R() < 0.3 * q + 0.1) { const g = 0.05 + R() * 0.03, j = M.emit(e.x + (R() - 0.5) * 0.4 * s, e.y + 1.0 * s, e.z + (R() - 0.5) * 0.4 * s, (R() - 0.5) * 0.4, 1.4 + R(), (R() - 0.5) * 0.4, 0.3, 0.15, 0.07, 2.2 + R(), -0.3, 0.6, 0.55 * s, 1.3 * s); M.fade(j, g, g, g * 1.1); M.al[j] = 0.95; }
         if (R() < 0.45) { const j = S.emit(e.x + (R() - 0.5) * 0.6 * s, e.y + 0.4, e.z + (R() - 0.5) * 0.6 * s, (R() - 0.5) * 1.6, 1.5 + R() * 2.5, (R() - 0.5) * 1.6, 1.4, 0.6, 0.12, 0.9 + R() * 1.1, -0.8, 1, 0.65, 0.3); S.fade(j, 0.9, 0.2, 0.02); }
-        this.rings.emit(e.x, e.y + 0.05, e.z, 2.6 * s, 2.9 * s, 0.24, 1, 0.5, 0.16, (0.2 + R() * 0.16) * k, 1);   // flickering pool of light
+        if (e !== this.fireLit) this.rings.emit(e.x, e.y + 0.05, e.z, 2.3 * s, 2.6 * s, 0.24, 1, 0.5, 0.16, (0.2 + R() * 0.16) * k, 2);   // fires without the dynamic light get a flickering pool instead
       }
     } else if (e.type === E_SMOKE) {
       e.acc += dt * 5 * (0.4 + 0.6 * q) * Math.min(1, e.t / 1.2 + 0.2);
       while (e.acc >= 1) {
         e.acc -= 1; const s = e.size, g = 0.06 + R() * 0.04;
-        const j = M.emit(e.x + (R() - 0.5) * s, e.y + R() * 0.5, e.z + (R() - 0.5) * s, (R() - 0.5) * 0.6, 1.8 + R() * 1.6, (R() - 0.5) * 0.6, g * 1.6, g * 1.2, g, 2.6 + R() * 1.4, -0.35, 0.5, 0.5 * s, 1.25 * s); M.al[j] = 0.85;
+        const j = M.emit(e.x + (R() - 0.5) * s, e.y + R() * 0.5, e.z + (R() - 0.5) * s, (R() - 0.5) * 0.6, 1.8 + R() * 1.6, (R() - 0.5) * 0.6, g * 1.6, g * 1.2, g, 2.6 + R() * 1.4, -0.35, 0.5, 0.75 * s, 1.7 * s); M.al[j] = 1.15;
       }
     } else if (e.type === E_DUST) {
-      const s = e.size, N = Math.round((7 + 13 * (s - 0.5)) * q);
+      const s = e.size, N = Math.round((6 + 11 * (s - 0.5)) * q);
       for (let i = 0; i < N; i++) {
-        const a = R() * 6.283, sp = (2.2 + R() * 3.6) * (0.7 + 0.5 * s), d = R() * 1.2 * s, g = 0.23 + R() * 0.07;
-        const j = M.emit(e.x + Math.cos(a) * d, e.y + 0.3 + R() * 0.6, e.z + Math.sin(a) * d, Math.cos(a) * sp, 0.3 + R() * 1.1, Math.sin(a) * sp, g * 1.06, g, g * 0.95, 2.6 + R() * 2.2, -0.12, 1.5, 0.5 + 0.3 * s, 1.4 + 1.0 * s);
-        M.al[j] = 0.72; M.fade(j, g * 0.8, g * 0.78, g * 0.78);
+        const a = R() * 6.283, sp = (2.2 + R() * 3.6) * (0.7 + 0.5 * s), d = R() * 1.2 * s, g = 0.3 + R() * 0.08;
+        const j = M.emit(e.x + Math.cos(a) * d, e.y + 0.3 + R() * 0.6, e.z + Math.sin(a) * d, Math.cos(a) * sp, 0.3 + R() * 1.1, Math.sin(a) * sp, g * 1.06, g, g * 0.95, 2.6 + R() * 2.2, -0.12, 1.5, 0.8 + 0.4 * s, 1.6 + 0.9 * s);
+        M.al[j] = 1.1; M.fade(j, g * 0.8, g * 0.78, g * 0.78);
       }
       e.t = 0;
     }
@@ -677,7 +695,13 @@ export class FX {
     this.deb.setColorAt(k, c); this.deb.instanceColor.needsUpdate = true;
     this.sweepDecals = true;   // debris means voxels broke: release the decals that sat on them
   }
-  setScale(h) { this.h = h; this.tMat.uniforms.px.value = 1.62 / Math.max(200, h) * 1.3; }
+  // the tracer quad is never thinner than ~4.5 px, so its core stays above 1 px
+  setScale(h) { this.h = h; this.tMat.uniforms.px.value = 1.62 / Math.max(200, h) * 4.5; }
+  // compile the lit variant of the world shader ahead of the first shot (called once by the environment)
+  prewarm(renderer, scene, camera) {
+    const m = this.wlMat; if (!m || this.wlActive || !renderer || !renderer.compile) return;
+    m.defines.WL = 1; m.needsUpdate = true; renderer.compile(scene, camera); delete m.defines.WL; m.needsUpdate = true;
+  }
   // lightning brightens smoke and dust together with the world (set by the environment)
   setFlash(i) { this.smoke.m.uniforms.lit.value = 1 + i * 1.4; }
   update(dt) {
@@ -701,7 +725,13 @@ export class FX {
       this.tv.set(fire.x, fire.y + 0.7, fire.z); this.boom.position.copy(this.tv); this.boom.intensity = 9 * k;
       this._light(1, this.tv, 1.5 * k, 0.75 * k, 0.28 * k, 7.5); lit = true;
     } else if (this.boom.intensity > 0) { this.boom.intensity = 0; this.wlC[1].set(0, 0, 0); }
+    this.fireLit = (this.boomT > 0 || !this.wlMat || this.wlOff) ? null : fire;
     this.wlOn.value = lit ? 1 : 0;
+    if (this.wlMat) {   // lit variant of the world shader: on while a light burns, stock shader again 2 s after the last one
+      if (lit && !this.wlOff) this.wlHold = 2; else if (this.wlHold > 0) this.wlHold -= dt;
+      const on = this.wlHold > 0 && !this.wlOff;
+      if (on !== this.wlActive) { this.wlActive = on; if (on) this.wlMat.defines.WL = 1; else delete this.wlMat.defines.WL; this.wlMat.needsUpdate = true; }
+    }
     // tracers
     if (this.tBusy > -0.25) {
       this.tBusy -= dt;

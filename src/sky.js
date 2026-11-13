@@ -40,7 +40,7 @@ function noiseTex(size = 256) {
   const A = fbm(11, 4, 5), B = fbm(53, 8, 4), d = new Uint8Array(size * size * 4);
   for (let i = 0; i < size * size; i++) { d[i * 4] = A[i] * 255; d[i * 4 + 1] = B[i] * 255; d[i * 4 + 3] = 255; }
   const t = new THREE.DataTexture(d, size, size, THREE.RGBAFormat);
-  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.minFilter = THREE.LinearMipmapLinearFilter; t.magFilter = THREE.LinearFilter; t.generateMipmaps = true; t.needsUpdate = true;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.minFilter = t.magFilter = THREE.LinearFilter; t.generateMipmaps = false; t.needsUpdate = true;   // bilinear only: the sky shader runs on every visible sky pixel
   return t;
 }
 
@@ -86,16 +86,17 @@ void main() {
   float n2 = texture2D(noise, uv * 0.13 + time * vec2(0.0085, -0.0052) + n1 * 0.08).g;
 #endif
   float n = n1 * 0.64 + n2 * 0.36;
-  float dens = smoothstep(0.40, 0.57, n);
-  float belly = smoothstep(0.50, 0.72, n);
+  float dens = smoothstep(0.36, 0.54, n);
+  float belly = smoothstep(0.47, 0.70, n);
   float md = max(dot(d, moonDir), 0.0);
+  float m8 = md * md; m8 *= m8; m8 *= m8; float m32 = m8 * m8; m32 *= m32;
   // clear night sky seen through the gaps, with the moon
-  vec3 gap = mix(vec3(0.085, 0.11, 0.165), vec3(0.03, 0.043, 0.078), pow(h, 0.6));
-  gap += vec3(0.30, 0.36, 0.48) * (pow(md, 40.0) * 0.5 + pow(md, 6.0) * 0.10);
-  gap += vec3(0.95, 0.96, 0.9) * smoothstep(0.99962, 0.9998, md);
+  vec3 gap = mix(vec3(0.10, 0.13, 0.19), vec3(0.045, 0.06, 0.105), sqrt(h));
+  gap += vec3(0.30, 0.36, 0.48) * (m32 * 0.5 + m8 * 0.10);
+  gap += vec3(0.93, 0.94, 0.88) * smoothstep(0.99972, 0.99986, md);
   // clouds: thin lit edges, dark bellies, moonlight through the thin parts, lightning from inside
-  vec3 cl = mix(vec3(0.235, 0.27, 0.335), vec3(0.085, 0.10, 0.14), belly);
-  cl += vec3(0.42, 0.46, 0.52) * pow(md, 10.0) * (1.0 - belly * 0.75);
+  vec3 cl = mix(vec3(0.27, 0.31, 0.385), vec3(0.115, 0.135, 0.185), belly);
+  cl += vec3(0.42, 0.46, 0.52) * m8 * (1.0 - belly * 0.75);
   float bl = max(dot(d, boltDir), 0.0); bl *= bl; bl *= bl;
   cl += vec3(0.7, 0.8, 1.0) * flash * (0.18 + 1.2 * bl) * (0.3 + 0.7 * n2);
   gap += vec3(0.25, 0.3, 0.4) * flash * (0.1 + 0.4 * bl);
@@ -232,7 +233,7 @@ export class Env {
       if (i < N) idx.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2);
     }
     const rg = new THREE.BufferGeometry(); rg.setAttribute('position', new THREE.BufferAttribute(pos, 3)); rg.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); rg.setIndex(idx);
-    const ring = new THREE.Mesh(rg, new THREE.ShaderMaterial({ uniforms: { map: { value: sl.tex }, fogCol: FOGU, flash: this.flash }, vertexShader: FAR_V, fragmentShader: SKYLINE_F, side: THREE.DoubleSide, depthWrite: false }));
+    const ring = new THREE.Mesh(rg, new THREE.ShaderMaterial({ uniforms: { map: { value: sl.tex }, fogCol: FOGU, flash: this.flash }, vertexShader: FAR_V, fragmentShader: SKYLINE_F, side: THREE.DoubleSide, forceSinglePass: true, depthWrite: false }));
     ring.renderOrder = 902; ring.frustumCulled = false; sky.add(ring);
     // blinking lights: skyline masts, then three per drone (updated every frame)
     const NB = sl.beacons.length, ND = this.low ? 0 : 2, NP = NB + ND * 3;
@@ -257,10 +258,9 @@ export class Env {
     const bg = this.boltGeo = new THREE.BufferGeometry();
     bg.setAttribute('position', new THREE.BufferAttribute(this.boltPos, 3).setUsage(THREE.DynamicDrawUsage)); bg.setAttribute('uv', new THREE.BufferAttribute(this.boltUv, 2).setUsage(THREE.DynamicDrawUsage));
     bg.setIndex(new THREE.BufferAttribute(this.boltIdx, 1).setUsage(THREE.DynamicDrawUsage));
-    this.boltMat = new THREE.ShaderMaterial({ uniforms: { k: { value: 0 } }, vertexShader: FAR_V, fragmentShader: BOLT_F, blending: ADD, depthWrite: false, side: THREE.DoubleSide });   // not "transparent": stays in the opaque list
+    this.boltMat = new THREE.ShaderMaterial({ uniforms: { k: { value: 0 } }, vertexShader: FAR_V, fragmentShader: BOLT_F, blending: ADD, depthWrite: false, side: THREE.DoubleSide, forceSinglePass: true });   // not "transparent": stays in the opaque list
     this.bolt = new THREE.Mesh(bg, this.boltMat); this.bolt.renderOrder = 901; this.bolt.frustumCulled = false; sky.add(this.bolt);
-    this._strike(600);   // prebuilt once so the program compiles during loading
-    this.bolt.visible = false;
+    this._strike(600);   // prebuilt once (drawn with k = 0 until the first strike) so its pipeline is warm
   }
   // new bolt at a random bearing: jagged trunk from the cloud base to the horizon plus a few forks
   _strike(dist, az0 = Math.random() * 6.283) {
@@ -294,7 +294,7 @@ export class Env {
   }
   // searchlights over both bases (slots 0-3), objective columns (4-9), drone cones (10-11): one draw call
   _buildBeams() {
-    const g = this.g, B = this.beams = new Beams(g.scene, 12, { fall: 0.9, fog: 0.12, order: 3 });
+    const g = this.g, B = this.beams = new Beams(g.scene, 12, { fog: 0.12, order: 3 });
     for (let i = 0; i < 12; i++) B.set(i, 0, -50, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0);
     for (let t = 0; t < 2; t++) {
       const b = BASES[t]; if (!b) continue;
@@ -312,7 +312,7 @@ export class Env {
     for (let f = 0; f < MAXB; f++) for (let s = 0; s < SEG; s++) for (let r = 0; r < 3; r++) { const a = (f * (SEG + 1) + s) * 4 + r, c = a + 4; idx.push(a, c, a + 1, a + 1, c, c + 1); }
     const bg = this.bGeo = new THREE.BufferGeometry();
     bg.setAttribute('position', new THREE.BufferAttribute(this.bPos, 3).setUsage(THREE.DynamicDrawUsage)); bg.setAttribute('aCol', new THREE.BufferAttribute(this.bCol, 3).setUsage(THREE.DynamicDrawUsage)); bg.setIndex(idx);
-    this.bMesh = new THREE.Mesh(bg, new THREE.ShaderMaterial({ vertexShader: BEACON_V, fragmentShader: BEACON_F, transparent: true, blending: ADD, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+    this.bMesh = new THREE.Mesh(bg, new THREE.ShaderMaterial({ vertexShader: BEACON_V, fragmentShader: BEACON_F, transparent: true, blending: ADD, depthWrite: false, side: THREE.DoubleSide, forceSinglePass: true, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
     this.bMesh.frustumCulled = false; this.bMesh.renderOrder = 2; this.g.scene.add(this.bMesh);
     this.bSig = -1; this.bN = 0;
   }
@@ -326,7 +326,7 @@ export class Env {
       for (let i = 0; i < n; i++) {
         const f = flags[i], rad = f.r || 7.5, y = (f.y ?? 1.0) + 0.05;
         for (let s = 0; s <= SEG; s++) { const a = s / SEG * Math.PI * 2, cs = Math.cos(a), sn = Math.sin(a); for (let r = 0; r < 4; r++) { const k = ((i * (SEG + 1) + s) * 4 + r) * 3, rr = rad + ROWS[r]; P[k] = f.x + sn * rr; P[k + 1] = y; P[k + 2] = f.z - cs * rr; } }
-        B.set(4 + i, f.x, y, f.z, 0, 1, 0, 36, 0.85, 0.5, 0, 0, 0, 26);
+        B.set(4 + i, f.x, y + 2.3, f.z, 0, 1, 0, 42, 1.05, 0.6, 0, 0, 0, 48);   // starts above head height and fades out as you approach
       }
       for (let i = n; i < MAXB; i++) B.hide(4 + i);
       this.bGeo.attributes.position.needsUpdate = true; this.bGeo.setDrawRange(0, n * SEG * 18); this.bMesh.visible = n > 0;
@@ -334,10 +334,10 @@ export class Env {
     for (let i = 0; i < n; i++) {
       const f = flags[i], cap = f.cap || 0, frac = Math.min(1, Math.abs(cap)), team = cap > 0 ? 0 : 1, owner = f.owner ?? -1;
       const pulse = f.contested ? 0.62 + 0.38 * Math.sin(this.t * 9) : 1;
-      const oc = owner === 0 ? CY : owner === 1 ? OR : WH, tc = team === 0 ? CY : OR, k = 0.15 * pulse;
+      const oc = owner === 0 ? CY : owner === 1 ? OR : WH, tc = team === 0 ? CY : OR, k = 0.46 * pulse;
       B.setColor(4 + i, oc[0] * k, oc[1] * k, oc[2] * k);
       for (let s = 0; s <= SEG; s++) {
-        const on = frac > 0 && s / SEG <= frac, col = on ? tc : WH, I = on ? 0.62 * pulse : 0.1;
+        const on = frac > 0 && s / SEG <= frac, col = on ? tc : WH, I = on ? 0.62 * pulse : 0.16;
         for (let r = 0; r < 4; r++) { const j = ((i * (SEG + 1) + s) * 4 + r) * 3, w = I * ROWI[r]; C[j] = col[0] * w; C[j + 1] = col[1] * w; C[j + 2] = col[2] * w; }
       }
     }
@@ -366,7 +366,7 @@ export class Env {
       const dx = v.x - cp.x, dz = v.z - cp.z; if (dx * dx + dz * dz > 1500) continue;
       v.acc += dt * 3 * q; if (v.acc < 1) continue; v.acc -= 1;
       if (w.get(v.vx, v.vy, v.vz) !== v.m) continue;
-      const k = M.emit(v.x + (R() - 0.5) * 0.4, v.y, v.z + (R() - 0.5) * 0.4, (R() - 0.5) * 0.3, 0.9 + R() * 0.8, (R() - 0.5) * 0.3, 0.3, 0.33, 0.38, 2 + R() * 1.2, -0.3, 0.5, 0.22 * v.s, 0.95 * v.s); M.al[k] = 0.42;
+      const k = M.emit(v.x + (R() - 0.5) * 0.4, v.y, v.z + (R() - 0.5) * 0.4, (R() - 0.5) * 0.3, 0.9 + R() * 0.8, (R() - 0.5) * 0.3, 0.3, 0.33, 0.38, 2 + R() * 1.2, -0.3, 0.5, 0.22 * v.s, 0.95 * v.s); M.al[k] = 0.6;
     }
     // reactor: quantum motes orbiting the live core, embers and smoke once it has blown
     const rx = 96 * VS, rz = 96 * VS, ex = rx - cp.x, ez = rz - cp.z;
@@ -414,7 +414,7 @@ export class Env {
 
   // ------------------------------------------------------------------ weather
   buildRain() {
-    const g = this.g, scene = g.scene, top = g.colTop, R = rng(4242), NR = this.NR = 2600, NS = this.NS = 640;
+    const g = this.g, scene = g.scene, top = g.colTop, R = rng(4242), NR = this.NR = 2000, NS = this.NS = 640;
     // rain: thin camera-facing quads, simulated in the vertex shader (no per-frame CPU or buffer uploads)
     const pos = new Float32Array(NR * 12), aux = new Float32Array(NR * 12), idx = new Uint16Array(NR * 6);
     for (let i = 0; i < NR; i++) {
@@ -424,7 +424,7 @@ export class Env {
     }
     const rg = new THREE.BufferGeometry(); rg.setAttribute('position', new THREE.BufferAttribute(pos, 3)); rg.setAttribute('aux', new THREE.BufferAttribute(aux, 3)); rg.setIndex(new THREE.BufferAttribute(idx, 1));
     this.rainMat = new THREE.ShaderMaterial({ uniforms: { hmap: { value: this.hmap }, time: this.time, drift: { value: this.drift }, wind: { value: this.wind }, px: { value: 0.003 }, flash: this.flash },
-      vertexShader: RAIN_V, fragmentShader: RAIN_F, transparent: true, depthWrite: false, side: THREE.DoubleSide });
+      vertexShader: RAIN_V, fragmentShader: RAIN_F, transparent: true, depthWrite: false, side: THREE.DoubleSide, forceSinglePass: true });
     this.rain = new THREE.Mesh(rg, this.rainMat); this.rain.frustumCulled = false; this.rain.renderOrder = 8; scene.add(this.rain);
     // splashes where drops land: points that re-roll their position every cycle
     const sp = new Float32Array(NS * 3), sa = new Float32Array(NS); for (let i = 0; i < NS; i++) { sp.set([R(), R(), R()], i * 3); sa[i] = R(); }
@@ -442,7 +442,7 @@ export class Env {
     const mN = this.mistN = spots.length, mg = quadGeo(Math.max(1, mN)), mp = new Float32Array(Math.max(1, mN) * 4), ms = new Float32Array(Math.max(1, mN) * 3);
     for (let i = 0; i < mN; i++) { mp.set([spots[i][0] * VS, 1.0, spots[i][1] * VS, R2()], i * 4); ms.set([7 + R2() * 5, 1.3 + R2() * 0.9, 0.2 + R2() * 0.1], i * 3); }
     inst(mg, 'iPos', mp, 4); inst(mg, 'iSz', ms, 3);
-    this.mist = new THREE.Mesh(mg, new THREE.ShaderMaterial({ uniforms: { noise: { value: this.noise }, time: this.time, flash: this.flash }, vertexShader: MIST_V, fragmentShader: MIST_F, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
+    this.mist = new THREE.Mesh(mg, new THREE.ShaderMaterial({ uniforms: { noise: { value: this.noise }, time: this.time, flash: this.flash }, vertexShader: MIST_V, fragmentShader: MIST_F, transparent: true, depthWrite: false, side: THREE.DoubleSide, forceSinglePass: true }));
     this.mist.frustumCulled = false; this.mist.renderOrder = 4; scene.add(this.mist);
     // puddles (water voxels open to the sky) for rain ripples
     const pud = []; for (let z = 1; z < SZ - 1; z++) for (let x = 1; x < SX - 1; x++) if (top[z * SX + x] === 2 && g.world.get(x, 1, z) === MAT.WATER) pud.push(x, z);
@@ -451,7 +451,7 @@ export class Env {
   }
   _counts() {
     const low = this.low;
-    this.rain.geometry.setDrawRange(0, (low ? 1000 : this.NR) * 6); this.splash.geometry.setDrawRange(0, low ? 220 : this.NS);
+    this.rain.geometry.setDrawRange(0, (low ? 800 : this.NR) * 6); this.splash.geometry.setDrawRange(0, low ? 220 : this.NS);
     this.mist.geometry.instanceCount = Math.max(1, low ? Math.min(7, this.mistN) : this.mistN); this.mist.visible = this.mistN > 0;
   }
   _ripples(dt) {
@@ -476,7 +476,14 @@ export class Env {
     this.t += dt; const t = this.t; this.time.value = t; this.frame++;
     if (fx.tick === this.fxTick) fx.update(dt);   // states that do not tick the effects (menu) still animate them
     this.fxTick = fx.tick;
-    if (this.frame % 90 === 1) { const low = g.settings.quality === 'low'; if (low !== this.low) { this.low = low; fx.q = low ? 0.5 : 1; if (this.rain) this._counts(); } }
+    if (this.frame === 40 && fx.prewarm) fx.prewarm(g.renderer, scene, cam);
+    if (this.frame % 90 === 1) {
+      // 'auto' quality: once the adaptive resolution has been pushed down this far the GPU is struggling, so the
+      // effects go lean too and stay lean for the session (a latch, so the two controllers never oscillate)
+      const ql = g.settings.quality; if (ql === 'auto' && g.scale < 0.7) this.lean = true;
+      const low = ql === 'low' || (ql === 'auto' && this.lean === true);
+      if (low !== this.low) { this.low = low; fx.q = low ? 0.5 : 1; fx.wlOff = low; if (this.rain) this._counts(); }
+    }
     // wind: a steady slant with slow gusts; rain, smoke and steam lean with it
     const gust = Math.max(0, Math.sin(t * 0.21) * Math.sin(t * 0.067 + 1.3)) + 0.25 * Math.sin(t * 0.9) * Math.sin(t * 0.33);
     this.wind.set(2.4 + 4.2 * gust, 0, 0.9 + 1.4 * Math.sin(t * 0.05));
