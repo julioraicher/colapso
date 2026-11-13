@@ -38,12 +38,25 @@ const UI = ['hover', 'click', 'confirm', 'back', 'deploy', 'tick', 'error', 'ran
   const boot = await pg.evaluate(async () => {
     const a = window.__game.audio, t0 = performance.now(); const p = a.init(); const syncMs = performance.now() - t0; const readyAtOnce = a.ready, loadedAtOnce = a.loaded;
     await p; a.init(); // idempotent
+    // sprite alignment on the browser's own decoder: silence right before and after every sprite, signal inside it,
+    // and an immediate onset for every gunshot (an offset error in either direction would trip one of the three)
+    const bad = []; let nSpr = 0;
+    for (const n in a.buf) {
+      const s = a.buf[n], d = s.b.getChannelData(0), sr = s.b.sampleRate; nSpr++;
+      const rms = (t0, t1) => { let e = 0, c = 0; for (let i = Math.max(0, t0 * sr | 0); i < Math.min(d.length, t1 * sr | 0); i++) { e += d[i] * d[i]; c++; } return c ? Math.sqrt(e / c) : 0; };
+      const pre = s.o > 0.03 ? rms(s.o - 0.025, s.o - 0.008) : 0, body = rms(s.o, s.o + s.d), post = rms(s.o + s.d + 0.008, s.o + s.d + 0.025);
+      const head = rms(s.o, s.o + 0.01), lim = Math.max(0.003, body * 0.05); // gaps: below -50 dBFS or 26 dB under the sound; gunshots start at once (the rocket launch builds up, so it is exempt)
+      if (pre > lim || post > lim || body < 0.002 || (n.startsWith('gun_') && !n.startsWith('gun_rpg') && head < 0.05)) bad.push(n + ' (before ' + pre.toFixed(4) + ', inside ' + body.toFixed(4) + ', after ' + post.toFixed(4) + ')');
+    }
+    window.__align = { n: nSpr, bad, sheetRate: a.buf.gun_k7_1 ? a.buf.gun_k7_1.b.sampleRate : 0 };
     const an = a.ctx.createAnalyser(); an.fftSize = 2048; a.bus.m.connect(an); window.__musAn = an;
     const out = a.ctx.createAnalyser(); out.fftSize = 2048; a.out.connect(out); window.__outAn = out;
     window.__rms = (n) => { const d = new Float32Array(n.fftSize); n.getFloatTimeDomainData(d); let s = 0, pk = 0; for (const v of d) { s += v * v; if (Math.abs(v) > pk) pk = Math.abs(v); } return [Math.sqrt(s / d.length), pk]; };
-    return { syncMs, readyAtOnce, loadedAtOnce, ctx: a.ctx.state, sr: a.ctx.sampleRate, st: a.stats(), credits: (window.__game.audio.constructor && 1), hasGame: a.game === window.__game };
+    return { align: window.__align, syncMs, readyAtOnce, loadedAtOnce, ctx: a.ctx.state, sr: a.ctx.sampleRate, st: a.stats(), credits: (window.__game.audio.constructor && 1), hasGame: a.game === window.__game };
   });
   console.log(`engine: init() returned in ${boot.syncMs.toFixed(1)} ms (ready ${boot.readyAtOnce}), context ${boot.ctx} @ ${boot.sr} Hz, samples decoded in ${boot.st.decodeMs} ms on an offline context started at page load (no gesture), everything playable ${boot.st.loadMs} ms after init(), ${boot.st.buffers} sounds, failed: [${boot.st.failed}]`);
+  console.log(`sprites: ${boot.align.n} cut from their sheets by offset (sheets decoded at ${boot.align.sheetRate} Hz), misaligned: [${boot.align.bad.slice(0, 6).join('; ')}]`);
+  ok(boot.align.n > 250 && !boot.align.bad.length, 'sprites misaligned in the decoded sheets: ' + boot.align.bad.length);
   ok(boot.ctx === 'running', 'audio context is not running'); ok(boot.readyAtOnce, 'ready flag not set by init()'); ok(boot.st.loaded && !boot.st.failed.length, 'samples failed to decode: ' + boot.st.failed);
   ok(boot.hasGame, 'audio.game hook missing'); ok(boot.syncMs < 250, 'init() blocks the menu for ' + boot.syncMs.toFixed(0) + ' ms');
   await pg.waitForTimeout(2500);
