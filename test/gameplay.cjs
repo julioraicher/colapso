@@ -2,7 +2,7 @@
 // supply pod, enemy artillery), vault / ledge grab / fall damage, fire modes, bipod, regeneration, the pre-match
 // countdown, statistics, missions and the bot roster.
 // Usage: node test/gameplay.cjs [outdir] [filter]     (filter: part of a group name: roster, conquest, tdm, koth,
-// callins, movement, weapons, countdown, missions)
+// callins, movement, weapons, countdown, missions, elite)
 const { chromium } = require('playwright'); const path = require('path'); const fs = require('fs');
 (async () => {
   const out = process.argv[2] || '/tmp/claude-0/shots'; const only = process.argv[3] || '';
@@ -334,6 +334,24 @@ const { chromium } = require('playwright'); const path = require('path'); const 
       // pause menu shows the missions
       const pm = await pg.evaluate(() => { const g = window.__game; g.show('pause'); const n = document.getElementById('pmis').children.length; g.show(null); return n; });
       check('pause menu lists the three missions', pm === 3, pm);
+    },
+
+    elite: async () => {
+      await fresh('conquest');
+      const r = await pg.evaluate(() => {
+        const g = window.__game, w = g.world, o = {}; window.step(3, () => { g.spawnProtect = 5; });
+        const e = g.bots.find(bot => bot.elite && bot.alive); o.elites = g.bots.filter(bot => bot.elite).map(bot => bot.team + ':' + bot.cls);
+        // a thin wall on a test pad in the sky: the elite on one side, its last contact on the other
+        w.fill(14, 36, 14, 50, 47, 50, 0); w.fill(14, 36, 14, 50, 37, 50, 1); w.fill(20, 38, 30, 44, 43, 30, 1); g.nav.rebuildVox(14, 14, 50, 50);
+        const place = () => { e.pos.set(16, 19, 17.5); e.path = null; e.lastSeen = new window.V3(16, 19, 11); e.lastSeenT = g.time; e.dashCd = 0; e.target = null; e.seeT = 0; e.hp = 100; };
+        place(); o.veteran = g.squads.tryDash(e, g.time);                    // default difficulty: never
+        const keep = g.settings.diff; g.settings.diff = 2; place(); o.ok = g.squads.tryDash(e, g.time); o.tele = !!e.dash;
+        window.step(0.7, () => { g.spawnProtect = 5; e.hp = 100; }); o.zTele = +e.pos.z.toFixed(2);
+        window.step(0.7, () => { g.spawnProtect = 5; e.hp = 100; }); o.zAfter = +e.pos.z.toFixed(2); o.done = !e.dash; o.dashes = g.squads.tally.dashes;
+        g.settings.diff = keep; return o;
+      });
+      check('elite: two Omega elites, no dash below the highest difficulty', r.elites.length === 2 && r.elites.every(s => s.startsWith('1:')) && r.veteran === false, r.elites);
+      check('elite: telegraphs for 0.8 s, then phases through a thin wall', r.ok && r.tele && Math.abs(r.zTele - 17.5) < 0.05 && r.zAfter < 15 && r.done && r.dashes === 1, r);
     },
   };
 

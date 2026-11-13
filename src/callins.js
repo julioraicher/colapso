@@ -67,7 +67,7 @@ export class CallIns {
     for (const S of this.strikes) this.unpillar(S.mesh);
     for (const P of this.pods) { g.scene.remove(P.mesh); this.unpillar(P.light); }
     this.strikes.length = 0; this.shells.length = 0; this.pods.length = 0; this.sweep = -1; this.sweepT = 0;
-    for (const s of g.streaks) { s.pts = 0; s.prog = 0; s.ready = false; s.active = false; s.t = 0; }
+    for (const s of g.streaks) { s.pts = 0; s.prog = 0; s.ready = false; s.active = false; s.t = 0; s.lock = 0; }
     g.streakPts = 0; this.seen = 0; this.eT = 0; this.eKills = 0; this.pollT = 0; this.used = 0; this.battery.kills = 0; this.podTold = false;
     if (this.evtOn) { this.evtOn = false; g.hud.event(null); }
   }
@@ -250,8 +250,9 @@ export class CallIns {
     const g = this.g; if (g.state !== 'play' || g.countdown > 0) return;
     this.eT += dt; if ((this.pollT -= dt) > 0) return; this.pollT = 1;
     let k = 0; for (const b of g.bots) if (b.team === 1) k += b.kills;
-    const gap = [140, 105, 80][g.settings.diff ?? 1] || 105;
-    if (this.eT < gap || k - this.eKills < 8 || g.matchTime < 50 || this.strikes.some(S => S.team === 1)) return;
+    // king of the hill is about one zone: shelling it is Omega's way back in, so the battery answers sooner there
+    const hill = g.mode === 'koth', gap = ([140, 105, 80][g.settings.diff ?? 1] || 105) * (hill ? 0.6 : 1);
+    if (this.eT < gap || k - this.eKills < (hill ? 4 : 8) || g.matchTime < (hill ? 35 : 50) || this.strikes.some(S => S.team === 1)) return;
     const z = this.enemyTarget(); if (!z) { this.pollT = 5; return; }
     this.eT = 0; this.eKills = k;
     const c = new THREE.Vector3(z.x, 0, z.z); c.y = g.nav.heightAt(c) ?? g.world.groundHeightAt(c.x, c.z, 12);
