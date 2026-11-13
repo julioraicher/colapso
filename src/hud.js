@@ -509,7 +509,7 @@ export class HUD {
     for (let i = 0; i < S.length; i++) {
       const s = S[i], r = R[i]; if (!r) continue;
       setC(r.el, 'rdy', s.ready && !s.active); setC(r.el, 'act', s.active);
-      setT(r.s, s.active ? 'ATIVA · ' + Math.ceil(s.t) + ' s' : s.ready ? 'PRONTA' : 'FALTAM ' + (s.cost - s.pts));
+      setT(r.s, s.active ? 'ATIVA · ' + Math.ceil(s.t) + ' s' : s.ready ? 'PRONTA' : s.lock > 0 ? 'AGUARDE ' + Math.ceil(s.lock) + ' s' : 'FALTAM ' + (s.cost - s.pts));
       bar(r.u, s.active ? s.t / 20 : s.prog);
     }
     const cd = g.countdown > 0 && g.state === 'play'; setC(E('cd'), 'hidden', !cd);

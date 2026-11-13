@@ -20,7 +20,7 @@ function paint(geo, col) {
 }
 
 export class Squads {
-  constructor(g) { this.g = g; this.list = []; this.intel = [[], []]; this.cd = {}; this.lastSay = -9; this.vcache = new Map(); this.crates = []; this.tally = { rockets: [0, 0], crates: [0, 0], dashes: 0, strikes: 0, radio: 0 }; }
+  constructor(g) { this.g = g; this.list = []; this.intel = [[], []]; this.cd = {}; this.lastSay = -9; this.vcache = new Map(); this.crates = []; this.tally = { rockets: [0, 0], crates: [0, 0], dashes: 0, strikes: 0, radio: 0 }; this.rally = [{ st: 'go', until: 0, p: null }, { st: 'go', until: 0, p: null }]; this.rallyT = 0; }
   // One unlit, vertex-coloured mesh per crate (team light strip on top); a hidden prototype is compiled at load time.
   warm() {
     const mk = (glow) => mergeGeometries([paint(new THREE.BoxGeometry(0.6, 0.35, 0.4), 0x4a5c4a), paint(new THREE.BoxGeometry(0.62, 0.06, 0.42).translate(0, 0.12, 0), glow)]);
@@ -31,6 +31,7 @@ export class Squads {
     const g = this.g;
     for (const c of this.crates) g.scene.remove(c.mesh);
     this.list = []; this.intel = [[], []]; this.cd = {}; this.lastSay = -9; this.vcache.clear(); this.crates = []; this.tally = { rockets: [0, 0], crates: [0, 0], dashes: 0, strikes: 0, radio: 0 };   // behaviour counters, read by the tests
+    this.rally = [{ st: 'go', until: 0, p: null }, { st: 'go', until: 0, p: null }]; this.rallyT = 0;
     for (const team of [0, 1]) {
       const bots = g.bots.filter(b => b.team === team).sort((a, b) => RANK[a.cls] - RANK[b.cls]);
       const n = Math.max(1, Math.ceil(bots.length / 3)), sq = [];
@@ -44,6 +45,7 @@ export class Squads {
   update(dt) {
     const g = this.g, now = g.time;
     if (g.countdown > 0) return;
+    if (g.mode === 'koth') this.updateRally(dt, now);
     for (const s of this.list) if ((s.t -= dt) <= 0) { s.t = 2.5 + Math.random() * 1.5; this.decide(s, now); }
     // Omega's crates heal Omega (Kappa's go through game.gadgets and also resupply the player)
     for (let i = this.crates.length - 1; i >= 0; i--) {
@@ -53,6 +55,24 @@ export class Squads {
     }
   }
   // Pick the squad's objective: a flag in conquest / king of the hill, a point to hunt around in deathmatch.
+  // King of the hill: a side locked out of the reactor stops feeding the defenders one at a time. It gathers a short
+  // way off and goes in together, which is what makes the zone change hands; the radio tells the player when to join.
+  updateRally(dt, now) {
+    const g = this.g, f = g.flags[0]; if (!f || (this.rallyT -= dt) > 0) return; this.rallyT = 0.5;
+    for (const team of [0, 1]) {
+      const R = this.rally[team], foe = 1 - team; let st = R.st;
+      if (st === 'gather') {
+        let n = 0; for (const b of g.bots) if (b.alive && b.team === team && (b.pos.x - R.p.x) ** 2 + (b.pos.z - R.p.z) ** 2 < 100) n++;
+        if (team === 0 && g.player.alive && (g.player.pos.x - R.p.x) ** 2 + (g.player.pos.z - R.p.z) ** 2 < 100) n++;
+        if (n >= 4 || now > R.until) { st = 'go'; R.until = now + 24; const lead = g.bots.find(b => b.alive && b.team === team); if (lead) this.say(lead, 'assault', 'AGORA! TODOS AO REATOR!', 10, false); }
+      } else if (now > R.until && f.owner === foe && Math.abs(f.cap) >= 1 && f.n[foe] >= 2 && f.n[team] === 0) {
+        st = 'gather'; R.until = now + 13; const B = BASES[team], L = Math.hypot(B.x - f.x, B.z - f.z) || 1;
+        R.p = { x: f.x + (B.x - f.x) / L * 21, z: f.z + (B.z - f.z) / L * 21 };
+        const lead = g.bots.find(b => b.alive && b.team === team); if (lead) this.say(lead, 'rally', 'REAGRUPAR! VAMOS ENTRAR JUNTOS NO REATOR.', 20, false);
+      }
+      if (st !== R.st) { R.st = st; this.tally.rallies = (this.tally.rallies || 0) + (st === 'go' ? 1 : 0); for (const s of this.list) if (s.team === team) s.t = 0; }
+    }
+  }
   decide(s, now) {
     const g = this.g, lead = s.members.find(b => b.alive) || s.leader, c = lead.pos, prevF = s.goalF;
     if (g.flags.length) {
@@ -66,7 +86,8 @@ export class Squads {
         if (s.team === 0 && s.idx === 0 && g.player.alive) { const pd = Math.hypot(f.x - g.player.pos.x, f.z - g.player.pos.z); sc += pd < 14 ? 30 : pd < 30 ? 12 : 0; }   // the first Kappa squad sticks with the player
         if (sc > bs) { bs = sc; best = f; bestOwned = owned; }
       }
-      s.goalF = best; s.goalP = best;
+      s.gather = g.mode === 'koth' && this.rally[s.team].st === 'gather';
+      s.goalF = best; s.goalP = s.gather ? this.rally[s.team].p : best;
       if (best !== prevF && lead.alive) {
         if (best.hill) this.say(lead, 'push', 'TODOS PARA O REATOR!', 30, false);
         else this.say(lead, 'push', bestOwned ? `PONTO ${best.id} SOB ATAQUE! VOLTANDO PARA DEFENDER.` : `AVANÇANDO PARA O PONTO ${best.id}!`, 22, false);

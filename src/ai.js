@@ -36,15 +36,39 @@ export class Nav {
   rebuildVox(x0, z0, x1, z1) { this.rebuild(Math.floor(x0 / NV) - 1, Math.floor(z0 / NV) - 1, Math.ceil(x1 / NV) + 1, Math.ceil(z1 / NV) + 1); }
   cell(p) { return [Math.min(NX - 1, Math.max(0, p.x / NC | 0)), Math.min(NZ - 1, Math.max(0, p.z / NC | 0))]; }
   ok(cx, cz) { return cx >= 0 && cz >= 0 && cx < NX && cz < NZ && this.h[cz * NX + cx] >= 0; }
-  pass(ax, az, bx, bz) { const ha = this.h[az * NX + ax], hb = this.h[bz * NX + bx]; return ha >= 0 && hb >= 0 && Math.abs(ha - hb) <= 1; }
+  // one voxel up, but down as far as a body can safely drop (3 m): nobody is marooned on top of a wall or a crate
+  pass(ax, az, bx, bz) { const ha = this.h[az * NX + ax], hb = this.h[bz * NX + bx]; return ha >= 0 && hb >= 0 && hb - ha <= 1 && ha - hb <= 6; }
   nearestOk(cx, cz) {
     if (this.ok(cx, cz)) return [cx, cz];
     for (let r = 1; r < 8; r++) for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) if (this.ok(cx + dx, cz + dz)) return [cx + dx, cz + dz];
     return null;
   }
+  // The cell a body at p really stands on. Cells are 1 m wide, so beside a wall the cell under the feet belongs to the
+  // top of that wall: take the closest cell at the body's own level instead.
+  startCell(p) {
+    const [cx, cz] = this.cell(p), y = p.y / VS; let best = null, bs = 1e9;
+    for (let r = 0; r <= 2 && !best; r++) for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
+      if (Math.max(Math.abs(dx), Math.abs(dz)) !== r || !this.ok(cx + dx, cz + dz)) continue;
+      const dh = Math.abs(this.h[(cz + dz) * NX + cx + dx] - y); if (dh > 1.5) continue;
+      const s = dx * dx + dz * dz + dh; if (s < bs) { bs = s; best = [cx + dx, cz + dz]; }
+    }
+    return best || this.nearestOk(cx, cz);
+  }
+  // Where a walk to p should end: the cell at p's level (or at ground level when p carries no height), not the top of
+  // whatever obstacle happens to share the cell.
+  goalCell(p) {
+    const [cx, cz] = this.cell(p), want = p.y > 0 ? p.y / VS : -1; let best = null, bs = 1e9;
+    for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) {
+      if (!this.ok(cx + dx, cz + dz)) continue;
+      const h = this.h[(cz + dz) * NX + cx + dx];
+      const s = Math.hypot(dx, dz) + (want >= 0 ? Math.abs(h - want) : Math.max(0, h - G - 1)) * 0.8;
+      if (s < bs) { bs = s; best = [cx + dx, cz + dz]; }
+    }
+    return best || this.nearestOk(cx, cz);
+  }
   // A* with octile heuristic, binary heap
   path(from, to, maxIter = 6000) {
-    let s = this.nearestOk(...this.cell(from)), g = this.nearestOk(...this.cell(to));
+    let s = this.startCell(from), g = this.goalCell(to);
     if (!s || !g) return null;
     const N = NX * NZ, si = s[1] * NX + s[0], gi = g[1] * NX + g[0];
     if (!this.gs || this.gs.length !== N) { this.gs = new Float32Array(N); this.came = new Int32Array(N); this.stamp = new Uint32Array(N); this.st = 0; this.closed = new Uint32Array(N); }
@@ -167,12 +191,14 @@ export class Bot {
       if ((this.rpgT -= dt) <= 0) { this.rockets--; g.squads.tally.rockets[this.team]++; g.fireBullet(this, this.muzzleWorld(), a, WEAPONS.rpg, 0.01 / this.skill); this.cool = 0.9; this.react = Math.max(this.react, 0.4); }
     } else if (see) {
       const tp = T.isPlayer ? T.chestPos() : T.chest, eye = this.eye, H = this.hand;
-      const dx = tp.x - eye.x, dz = tp.z - eye.z, d = eye.distanceTo(tp);
+      const dx = tp.x - eye.x, dz = tp.z - eye.z, d = eye.distanceTo(tp); this.engD = d;
       this.yaw = lerpAngle(this.yaw, Math.atan2(-(tp.x - this.pos.x), -(tp.z - this.pos.z)), Math.min(1, dt * 8));
       this.react -= dt;
       const reloc = now < this.relocT;
+      // attackers do not settle outside an objective that is not theirs yet: they fight their way in, which keeps zones contested
+      const F = this.goalF, push = !!F && this.cls !== 'recon' && this.hp > 40 && d > 9 && !(F.owner === this.team && Math.abs(F.cap) >= 1 && !F.contested) && (F.x - this.pos.x) ** 2 + (F.z - this.pos.z) ** 2 > 36;
       // keep distance: stop to shoot inside the weapon's range; assault keeps pushing, a relocating sniper keeps walking
-      if (!this.seekCover && !reloc && d <= H.rng && (d < 25 || this.cls === 'recon' || this.cls === 'suporte') && !(this.cls === 'assalto' && d > 16 && this.hp > 55)) moving = false;
+      if (!this.seekCover && !reloc && !push && d <= H.rng && (d < 25 || this.cls === 'recon' || this.cls === 'suporte') && !(this.cls === 'assalto' && d > 16 && this.hp > 55)) moving = false;
       // humanised aim: the offset walks onto the target (slower for heavy weapons, under fire and on the move) and trails a strafing one
       const tvx = T.isPlayer ? T.p.vel.x : T.vx || 0, tvz = T.isPlayer ? T.p.vel.z : T.vz || 0;
       const lag = -(tvz * dx - tvx * dz) / Math.max(1, Math.hypot(dx, dz)) * (0.05 / this.skill) / Math.max(4, d);
@@ -207,7 +233,7 @@ export class Bot {
       this.nade = (20 + Math.random() * 25) * (this.cls === 'assalto' ? 0.65 : 1);
     }
     // ---- locomotion ----
-    let vx = 0, vz = 0; const sp = this.crouch ? 1.5 : see ? 2.6 : now < this.fleeT ? 5 : this.cls === 'assalto' ? 4.5 : 4.2;
+    let vx = 0, vz = 0; const sp = this.crouch ? 1.5 : see && this.engD < Math.min(45, this.hand.rng * 1.1) ? 2.6 : now < this.fleeT ? 5 : this.cls === 'assalto' ? 4.5 : 4.2;
     if (!frozen && moving && this.path && this.pi < this.path.length) {
       const n = this.path[this.pi];
       const dx = n.x - this.pos.x, dz = n.z - this.pos.z; const dd = Math.hypot(dx, dz);
@@ -223,7 +249,7 @@ export class Bot {
     // stuck on the way somewhere → try to climb what is in the way (up to 1 m), then repath
     if (now - (this.stuckCheck || 0) > 1.5) {
       this.stuckCheck = now;
-      if (this.lastPos.distanceTo(this.pos) < 0.3 && moving && !frozen && this.path && this.pi < this.path.length && !see) { if (now > this.hopT + 2) this.hopT = now + 1.2; else { this.path = null; this.repath = 0; } }
+      if (this.lastPos.distanceTo(this.pos) < 0.3 && moving && !frozen && this.path && this.pi < this.path.length) { if (now > this.hopT + 2) this.hopT = now + 1.2; else { this.path = null; this.repath = 0; } }
       this.lastPos.copy(this.pos);
     }
     // ---- animation ----
@@ -402,7 +428,7 @@ export class Bot {
     if (this.rpgT > 0) return;
     // objective: the squad's goal (flag or hunting ground); chase a fresh contact, heal up when hurt, hold when there
     this.repath -= 0.25;
-    const S = this.squad, P = S ? S.goalP : null;
+    const S = this.squad, P = S ? (S.gather && this.cls === 'recon' ? S.goalF : S.goalP) : null;   // (a sniper keeps its overwatch while the squad gathers)
     const arrived = !this.path || this.pi >= this.path.length;
     if (arrived && !this.arrT && this.path) { this.arrT = now; this.waitT = now + this.holdDur; }
     const relocate = this.cls === 'recon' && !!this.vant && this.shotsHere >= this.relocN;   // a few shots from one spot, then move
@@ -411,9 +437,11 @@ export class Bot {
       this.repath = 4 + Math.random() * 3; this.arrT = 0; this.goalP = P; this.goalF = S ? S.goalF : null; this.holdDur = 0; this.holdYaw = null; this.holdCrouch = false;
       let dest = null;
       if (this.hp < 55 && !best) dest = this.healSpot();
-      if (!dest && best && bd > this.hand.rng) dest = this.lastSeen;                                                  // out of reach for this weapon: close in
-      if (!dest && !relocate && this.lastSeen && now - this.lastSeenT < 6 && Math.random() < (this.cls === 'assalto' ? 0.65 : this.cls === 'recon' ? 0.1 : 0.45)) dest = this.lastSeen;   // hunt the last contact
-      if (!dest && !best && now - this.heardT < 3 && Math.random() < 0.3) dest = this.heard;                        // investigate a noise
+      // king of the hill: the zone only pays while somebody stands in it, so nobody is drawn far away from it
+      const H = this.goalF && this.goalF.hill ? this.goalF : null, near = (q) => !H || (!S.gather && (q.x - H.x) ** 2 + (q.z - H.z) ** 2 < 196);
+      if (!dest && best && bd > this.hand.rng && near(this.lastSeen)) dest = this.lastSeen;                           // out of reach for this weapon: close in
+      if (!dest && !relocate && this.lastSeen && now - this.lastSeenT < 6 && near(this.lastSeen) && Math.random() < (this.cls === 'assalto' ? 0.65 : this.cls === 'recon' ? 0.1 : 0.45)) dest = this.lastSeen;   // hunt the last contact
+      if (!dest && !best && now - this.heardT < 3 && near(this.heard) && Math.random() < 0.3) dest = this.heard;      // investigate a noise
       if (!dest && P) {
         if (this.cls === 'recon') {
           // overwatch: a spot with a long view of the objective

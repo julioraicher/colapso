@@ -149,7 +149,7 @@ export class Rules {
       if (now === 0) { const mine = g.inFlag(f); g.audio.play('capture', null, 0.5, 1, 0); g.hud.toast('REATOR CAPTURADO', mine ? 200 : 0); if (mine) { g.pent.score += 200; g.pent.caps++; } }
       else if (now === 1) { g.audio.play('lost', null, 0.5, 1, 0); g.hud.toast('A ÔMEGA DOMINOU O REATOR', 0, true); }
     }
-    if (now >= 0 && f.n[1 - now] === 0) {
+    if (now >= 0 && f.n[now] > 0 && f.n[1 - now] === 0) {             // pays only while a holder stands in it and no enemy does
       this.acc[now] += dt;
       if (this.acc[now] >= 1) { this.acc[now] -= 1; g.score[now]++; }
       if (now === 0 && g.inFlag(f)) { this.holdT += dt; if (this.holdT >= 10) { this.holdT = 0; g.pent.score += 50; g.hud.toast('DEFESA DO REATOR', 50); } }
@@ -161,6 +161,7 @@ export class Rules {
   death(victim, killer) {
     const g = this.g; if (g.state === 'end' || !victim || victim.team === undefined) return;
     if (g.mode === 'conquest') g.tickets[victim.team] = Math.max(0, g.tickets[victim.team] - 1);
+    else if (g.mode === 'koth' && victim.isBot) { const f = g.flags[0]; if (f && Math.abs(f.cap) >= 1 && f.owner === 1 - victim.team) victim.respawnT = Math.min(victim.respawnT, 4.5); }   // the side locked out of the reactor is back sooner
     else if (g.mode === 'tdm' && killer && killer.team !== undefined && killer.team !== victim.team) {
       g.score[killer.team]++;
       const left = g.scoreMax - g.score[killer.team];
@@ -181,6 +182,7 @@ export class Rules {
       const a = Math.random() * Math.PI * 2, r = rMin + Math.random() * (rMax - rMin);
       const p = new THREE.Vector3(c.x + Math.cos(a) * r, 0, c.z + Math.sin(a) * r);
       const h = g.nav.heightAt(p); if (h === null) continue;
+      if (h > G * VS + 1.6 && k < tries * 0.7) continue;          // on the ground, not on top of a wall or a machine
       p.y = h; let bad = false;
       for (const e of g.entities) {
         if (!e.alive || e.team === team) continue;

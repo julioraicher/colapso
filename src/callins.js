@@ -75,7 +75,7 @@ export class CallIns {
   earn(n) {
     const g = this.g; g.streakPts += n;
     for (const s of g.streaks) {
-      if (s.ready) continue;
+      if (s.ready || s.lock > 0) continue;
       s.pts = Math.min(s.cost, s.pts + n);
       if (s.pts >= s.cost) { s.ready = true; g.hud.toast(`${s.name} PRONTA · [${s.key}]`, 0); g.audio.play('streakReady', null, 0.7); }
     }
@@ -94,7 +94,7 @@ export class CallIns {
       if (s.id === 'arty') { this.strike(t, g.pent, ARTY_DELAY); g.hud.toast('BARRAGEM A CAMINHO · PROTEJA-SE', 0); g.hud.radio('COMANDO', 'Coordenadas recebidas. Artilharia a caminho!'); }
       else { this.dropPod(t); g.hud.toast('CÁPSULA DE SUPRIMENTOS A CAMINHO', 0); g.hud.radio('COMANDO', 'Cápsula lançada. Afaste-se do ponto de impacto.'); }
     }
-    s.ready = false; s.pts = 0; this.used++;
+    s.ready = false; s.pts = 0; s.lock = s.id === 'uav' ? UAV_T : 25; this.used++;      // its meter stays shut for a while: no chain of call-ins
     g.rules.stat('callins'); g.rules.mission('callin'); g.audio.play('radio', null, 0.5);
     return true;
   }
@@ -134,7 +134,7 @@ export class CallIns {
   update(dt) {
     const g = this.g, p = g.player, fx = g.fx;
     const sc = g.pent.score; if (sc > this.seen) this.earn(sc - this.seen); this.seen = sc;
-    for (const s of g.streaks) s.prog = s.ready ? 1 : s.pts / s.cost;
+    for (const s of g.streaks) { s.prog = s.ready ? 1 : s.pts / s.cost; if (s.lock > 0) s.lock -= dt; }
     // --- UAV: a pulse every 2.5 s marks every living enemy (minimap dot + 3D marker) until the next one
     const u = g.streaks[0];
     if (u.active) {
@@ -169,12 +169,14 @@ export class CallIns {
       const s = this.shells[i], y0 = s.y, top = this.topAt(s.x, s.z); s.y -= 115 * dt;
       fx.tracer(_a.set(s.x, y0 + 6, s.z), _b.set(s.x, Math.max(s.y, top), s.z), [1, 0.75, 0.4]);
       if (s.y <= top + 0.3) {
+        if (g.boomT === g.time) { s.y = top + 0.3; continue; }        // one heavy blast per frame: this one waits for the next (frame-time safety)
         this.shells.splice(i, 1);
-        g.blast = 'ARTILHARIA'; g.explode(new THREE.Vector3(s.x, top + 0.4, s.z), 4.2, s.owner, 2.0, 'explosion_big'); g.blast = null;
+        g.blast = 'ARTILHARIA'; g.explode(new THREE.Vector3(s.x, top + 0.4, s.z), 3.8, s.owner, 2.0, 'explosion_big'); g.blast = null;
       }
     }
     // --- supply pods
     for (let i = this.pods.length - 1; i >= 0; i--) if (this.updatePod(this.pods[i], dt)) this.pods.splice(i, 1);
+    this.seen = g.pent.score;            // what the call-ins themselves score counts for the match, but does not pay for the next call-in
     this.enemyLogic(dt);
     // --- warning banner while the player stands where shells are about to land
     let warn = null;

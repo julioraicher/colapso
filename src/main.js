@@ -490,7 +490,7 @@ class Game {
     }
   }
   explode(c, r, owner, power = 1, snd = 'explosion') {
-    owner = owner || this.pent;
+    owner = owner || this.pent; this.boomT = this.time;
     const res = this.world.explode(c, r, power);
     if (owner === this.pent) this.rules.addVox(res.removed.length);
     this.squads.noise(null, c, 42);
