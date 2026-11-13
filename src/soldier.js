@@ -475,9 +475,14 @@ function teamLights() {
   p.onBeforeRender = (r, scene, cam) => {
     const h = r.getDrawingBufferSize(_v2).y; m.uniforms.px.value = h * .5 * cam.projectionMatrix.elements[5]; m.uniforms.minPx.value = Math.max(2, h * .0055);
     if (scene.fog && scene.fog.density) m.uniforms.fogDensity.value = scene.fog.density;
-    let ch = false;   // soldiers hidden or removed behind our back lose their lights (they come back with the next update())
+  };
+  // Soldiers hidden or removed behind our back lose their lights (they come back with their next update()). This runs
+  // in the scene's matrix pass, i.e. before the renderer uploads the buffers of the frame.
+  p.updateMatrixWorld = function (force) {
+    let ch = false;
     for (let i = 0; i < O.length; i++) { const o = O[i]; if (o && C.array[i * 8 + 3] > 0 && !(o.root.visible && o.root.parent === p.parent)) { C.array[i * 8 + 3] = C.array[i * 8 + 7] = 0; ch = true; } }
     if (ch) C.needsUpdate = true;
+    THREE.Points.prototype.updateMatrixWorld.call(this, force);
   };
   return p;
 }
