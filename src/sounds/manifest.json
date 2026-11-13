@@ -1,0 +1,3271 @@
+{
+ "files": [
+  "guns",
+  "far",
+  "blast",
+  "foley",
+  "steps",
+  "impacts",
+  "ui",
+  "thunder",
+  "rain_out",
+  "rain_in",
+  "wind",
+  "reactor",
+  "music_menu",
+  "music_tension",
+  "music_combat",
+  "stings"
+ ],
+ "info": {
+  "guns": {
+   "sr": 44100,
+   "ch": 1,
+   "q": 4
+  },
+  "far": {
+   "sr": 32000,
+   "ch": 1,
+   "q": 3
+  },
+  "blast": {
+   "sr": 44100,
+   "ch": 1,
+   "q": 4
+  },
+  "foley": {
+   "sr": 32000,
+   "ch": 1,
+   "q": 3
+  },
+  "steps": {
+   "sr": 32000,
+   "ch": 1,
+   "q": 3
+  },
+  "impacts": {
+   "sr": 32000,
+   "ch": 1,
+   "q": 3
+  },
+  "ui": {
+   "sr": 44100,
+   "ch": 1,
+   "q": 4
+  },
+  "thunder": {
+   "sr": 22050,
+   "ch": 1,
+   "q": 3
+  },
+  "rain_out": {
+   "sr": 32000,
+   "ch": 2,
+   "q": 2
+  },
+  "rain_in": {
+   "sr": 32000,
+   "ch": 2,
+   "q": 1
+  },
+  "wind": {
+   "sr": 22050,
+   "ch": 1,
+   "q": 2
+  },
+  "reactor": {
+   "sr": 22050,
+   "ch": 1,
+   "q": 2
+  },
+  "music_menu": {
+   "sr": 44100,
+   "ch": 2,
+   "q": 2
+  },
+  "music_tension": {
+   "sr": 44100,
+   "ch": 2,
+   "q": 2
+  },
+  "music_combat": {
+   "sr": 44100,
+   "ch": 2,
+   "q": 2
+  },
+  "stings": {
+   "sr": 44100,
+   "ch": 2,
+   "q": 3
+  }
+ },
+ "sprites": {
+  "gun_k7_1": [
+   "guns",
+   0,
+   0.58
+  ],
+  "gun_k7_2": [
+   "guns",
+   0.62,
+   0.58
+  ],
+  "gun_k7_3": [
+   "guns",
+   1.24,
+   0.58
+  ],
+  "gun_arco_1": [
+   "guns",
+   1.86,
+   0.44
+  ],
+  "gun_arco_2": [
+   "guns",
+   2.34,
+   0.44
+  ],
+  "gun_arco_3": [
+   "guns",
+   2.82,
+   0.44
+  ],
+  "gun_vespa_1": [
+   "guns",
+   3.3,
+   0.36
+  ],
+  "gun_vespa_2": [
+   "guns",
+   3.7,
+   0.36
+  ],
+  "gun_vespa_3": [
+   "guns",
+   4.1,
+   0.36
+  ],
+  "gun_faisca_1": [
+   "guns",
+   4.5,
+   0.17333
+  ],
+  "gun_faisca_2": [
+   "guns",
+   4.71333,
+   0.1683
+  ],
+  "gun_faisca_3": [
+   "guns",
+   4.92163,
+   0.17834
+  ],
+  "gun_trovao_1": [
+   "guns",
+   5.13998,
+   0.56
+  ],
+  "gun_trovao_2": [
+   "guns",
+   5.73998,
+   0.56
+  ],
+  "gun_trovao_3": [
+   "guns",
+   6.33998,
+   0.56
+  ],
+  "gun_bigorna_1": [
+   "guns",
+   6.93998,
+   0.9
+  ],
+  "gun_bigorna_2": [
+   "guns",
+   7.87998,
+   0.9
+  ],
+  "gun_bigorna_3": [
+   "guns",
+   8.81998,
+   0.9
+  ],
+  "gun_rajada_1": [
+   "guns",
+   9.75998,
+   0.24
+  ],
+  "gun_rajada_2": [
+   "guns",
+   10.03998,
+   0.24
+  ],
+  "gun_rajada_3": [
+   "guns",
+   10.31998,
+   0.24
+  ],
+  "gun_p9_1": [
+   "guns",
+   10.59998,
+   0.32
+  ],
+  "gun_p9_2": [
+   "guns",
+   10.95998,
+   0.32
+  ],
+  "gun_juiz_1": [
+   "guns",
+   11.31998,
+   1.1
+  ],
+  "gun_juiz_2": [
+   "guns",
+   12.45998,
+   1.1
+  ],
+  "gun_martelo_1": [
+   "guns",
+   13.59998,
+   0.9
+  ],
+  "gun_martelo_2": [
+   "guns",
+   14.53998,
+   0.87544
+  ],
+  "gun_lanca_1": [
+   "guns",
+   15.45542,
+   0.9
+  ],
+  "gun_lanca_2": [
+   "guns",
+   16.39542,
+   0.9
+  ],
+  "gun_orion_1": [
+   "guns",
+   17.33542,
+   2.5
+  ],
+  "gun_vigia_1": [
+   "guns",
+   19.87542,
+   1.15
+  ],
+  "gun_rpg_1": [
+   "guns",
+   21.06542,
+   1.7
+  ],
+  "far_rifle_1": [
+   "far",
+   0,
+   0.81159
+  ],
+  "far_rifle_2": [
+   "far",
+   0.85159,
+   0.74522
+  ],
+  "far_rifle_3": [
+   "far",
+   1.63681,
+   0.75231
+  ],
+  "far_small_1": [
+   "far",
+   2.42912,
+   0.79019
+  ],
+  "far_small_2": [
+   "far",
+   3.25931,
+   0.57325
+  ],
+  "far_small_3": [
+   "far",
+   3.87256,
+   0.59675
+  ],
+  "far_heavy_1": [
+   "far",
+   4.50931,
+   0.98987
+  ],
+  "far_heavy_2": [
+   "far",
+   5.53919,
+   1.12719
+  ],
+  "far_heavy_3": [
+   "far",
+   6.70638,
+   1.22
+  ],
+  "battle_1": [
+   "far",
+   7.96638,
+   1.04722
+  ],
+  "battle_2": [
+   "far",
+   9.05359,
+   1.24159
+  ],
+  "battle_3": [
+   "far",
+   10.33519,
+   1.09484
+  ],
+  "battle_4": [
+   "far",
+   11.47003,
+   1.20881
+  ],
+  "battle_5": [
+   "far",
+   12.71884,
+   1.01447
+  ],
+  "battle_6": [
+   "far",
+   13.77331,
+   1.83766
+  ],
+  "battle_7": [
+   "far",
+   15.65097,
+   1.79909
+  ],
+  "battle_8": [
+   "far",
+   17.49006,
+   2.86522
+  ],
+  "exp_grenade_1": [
+   "blast",
+   0,
+   2.05
+  ],
+  "exp_grenade_2": [
+   "blast",
+   2.09,
+   2.1
+  ],
+  "exp_rocket_1": [
+   "blast",
+   4.23,
+   2
+  ],
+  "exp_barrel_1": [
+   "blast",
+   6.27,
+   1.54
+  ],
+  "exp_big_1": [
+   "blast",
+   7.85,
+   4.02
+  ],
+  "exp_far_1": [
+   "blast",
+   11.91,
+   1.79909
+  ],
+  "exp_far_2": [
+   "blast",
+   13.74909,
+   2.86522
+  ],
+  "exp_far_3": [
+   "blast",
+   16.65431,
+   4.34122
+  ],
+  "debris_1": [
+   "blast",
+   21.03553,
+   1.5
+  ],
+  "debris_2": [
+   "blast",
+   22.57553,
+   1.5
+  ],
+  "debris_3": [
+   "blast",
+   24.11553,
+   1.5
+  ],
+  "collapse_1": [
+   "blast",
+   25.65553,
+   3.30023
+  ],
+  "rl_ak74_0": [
+   "foley",
+   0,
+   0.172
+  ],
+  "rl_ak74_1": [
+   "foley",
+   0.212,
+   0.436
+  ],
+  "rl_ak74_2": [
+   "foley",
+   0.688,
+   0.504
+  ],
+  "rl_ak74_3": [
+   "foley",
+   1.232,
+   0.55772
+  ],
+  "rl_steyr_0": [
+   "foley",
+   1.82972,
+   0.234
+  ],
+  "rl_steyr_1": [
+   "foley",
+   2.10372,
+   0.268
+  ],
+  "rl_steyr_2": [
+   "foley",
+   2.41172,
+   0.204
+  ],
+  "rl_steyr_3": [
+   "foley",
+   2.65572,
+   0.14
+  ],
+  "rl_steyr_4": [
+   "foley",
+   2.83572,
+   0.16928
+  ],
+  "rl_mp5_0": [
+   "foley",
+   3.045,
+   0.798
+  ],
+  "rl_mp5_1": [
+   "foley",
+   3.883,
+   0.504
+  ],
+  "rl_mp5_2": [
+   "foley",
+   4.427,
+   0.35859
+  ],
+  "rl_m249_0": [
+   "foley",
+   4.82559,
+   0.132
+  ],
+  "rl_m249_1": [
+   "foley",
+   4.99759,
+   0.216
+  ],
+  "rl_m249_2": [
+   "foley",
+   5.25359,
+   0.372
+  ],
+  "rl_m249_3": [
+   "foley",
+   5.66559,
+   0.16
+  ],
+  "rl_m249_4": [
+   "foley",
+   5.86559,
+   0.236
+  ],
+  "rl_m249_5": [
+   "foley",
+   6.14159,
+   0.304
+  ],
+  "rl_m249_6": [
+   "foley",
+   6.48559,
+   0.396
+  ],
+  "rl_m249_7": [
+   "foley",
+   6.92159,
+   0.132
+  ],
+  "rl_m249_8": [
+   "foley",
+   7.09359,
+   0.08
+  ],
+  "rl_m249_9": [
+   "foley",
+   7.21359,
+   0.248
+  ],
+  "rl_m249_10": [
+   "foley",
+   7.50159,
+   0.23047
+  ],
+  "rl_ruger_0": [
+   "foley",
+   7.77206,
+   0.128
+  ],
+  "rl_ruger_1": [
+   "foley",
+   7.94006,
+   0.216
+  ],
+  "rl_ruger_2": [
+   "foley",
+   8.19606,
+   0.43769
+  ],
+  "rl_barrett_0": [
+   "foley",
+   8.67375,
+   0.268
+  ],
+  "rl_barrett_1": [
+   "foley",
+   8.98175,
+   0.464
+  ],
+  "rl_barrett_2": [
+   "foley",
+   9.48575,
+   0.808
+  ],
+  "rl_barrett_3": [
+   "foley",
+   10.33375,
+   0.50891
+  ],
+  "rl_deagle_0": [
+   "foley",
+   10.88266,
+   0.646
+  ],
+  "rl_deagle_1": [
+   "foley",
+   11.56866,
+   0.74706
+  ],
+  "rl_colt_0": [
+   "foley",
+   12.35572,
+   0.25
+  ],
+  "rl_colt_1": [
+   "foley",
+   12.64572,
+   0.28
+  ],
+  "rl_colt_2": [
+   "foley",
+   12.96572,
+   0.268
+  ],
+  "rl_m79_0": [
+   "foley",
+   13.27372,
+   0.324
+  ],
+  "rl_m79_1": [
+   "foley",
+   13.63772,
+   0.72709
+  ],
+  "draw_1": [
+   "foley",
+   14.40481,
+   0.71247
+  ],
+  "draw_2": [
+   "foley",
+   15.15728,
+   0.59953
+  ],
+  "pickup_1": [
+   "foley",
+   15.79681,
+   0.63316
+  ],
+  "scope_1": [
+   "foley",
+   16.46997,
+   0.363
+  ],
+  "scopeback_1": [
+   "foley",
+   16.87297,
+   0.36684
+  ],
+  "bolt_1": [
+   "foley",
+   17.27981,
+   0.205
+  ],
+  "boltFwd_1": [
+   "foley",
+   17.52481,
+   0.34769
+  ],
+  "pump_1": [
+   "foley",
+   17.9125,
+   0.57459
+  ],
+  "shellIn_1": [
+   "foley",
+   18.52709,
+   0.29372
+  ],
+  "shellIn_2": [
+   "foley",
+   18.86081,
+   0.27453
+  ],
+  "shellIn_3": [
+   "foley",
+   19.17534,
+   0.31238
+  ],
+  "pin_1": [
+   "foley",
+   19.52772,
+   0.33825
+  ],
+  "throw_1": [
+   "foley",
+   19.90597,
+   0.36878
+  ],
+  "nadeBounce_1": [
+   "foley",
+   20.31475,
+   0.24991
+  ],
+  "nadeBounce_2": [
+   "foley",
+   20.60466,
+   0.28397
+  ],
+  "empty_1": [
+   "foley",
+   20.92863,
+   0.16
+  ],
+  "firemode_1": [
+   "foley",
+   21.12862,
+   0.22
+  ],
+  "click_1": [
+   "foley",
+   21.38863,
+   0.2
+  ],
+  "clipfall_1": [
+   "foley",
+   21.62862,
+   0.25331
+  ],
+  "lawload_1": [
+   "foley",
+   21.92194,
+   0.50606
+  ],
+  "lawlock_1": [
+   "foley",
+   22.468,
+   0.17856
+  ],
+  "casing_1": [
+   "foley",
+   22.68656,
+   0.22903
+  ],
+  "casing_2": [
+   "foley",
+   22.95559,
+   0.202
+  ],
+  "casing_3": [
+   "foley",
+   23.19759,
+   0.18719
+  ],
+  "melee_1": [
+   "foley",
+   23.42478,
+   0.4
+  ],
+  "melee_2": [
+   "foley",
+   23.86478,
+   0.42
+  ],
+  "melee_3": [
+   "foley",
+   24.32478,
+   0.23206
+  ],
+  "meleeHit_1": [
+   "foley",
+   24.59684,
+   0.57309
+  ],
+  "meleeHit_2": [
+   "foley",
+   25.20994,
+   0.45584
+  ],
+  "vault_1": [
+   "foley",
+   25.70578,
+   0.86916
+  ],
+  "gear_1": [
+   "foley",
+   26.61494,
+   0.45
+  ],
+  "gear_2": [
+   "foley",
+   27.10494,
+   0.5
+  ],
+  "gear_3": [
+   "foley",
+   27.64494,
+   0.5
+  ],
+  "gear_4": [
+   "foley",
+   28.18494,
+   0.5
+  ],
+  "lowammo_1": [
+   "foley",
+   28.72494,
+   0.14
+  ],
+  "shell_concrete_1": [
+   "foley",
+   28.90494,
+   0.7
+  ],
+  "shell_concrete_2": [
+   "foley",
+   29.64494,
+   0.7
+  ],
+  "shell_concrete_3": [
+   "foley",
+   30.38494,
+   0.7
+  ],
+  "shell_metal_1": [
+   "foley",
+   31.12494,
+   0.67512
+  ],
+  "shell_metal_2": [
+   "foley",
+   31.84006,
+   0.7
+  ],
+  "shell_metal_3": [
+   "foley",
+   32.58006,
+   0.7
+  ],
+  "shell_dirt_1": [
+   "foley",
+   33.32006,
+   0.48187
+  ],
+  "shell_dirt_2": [
+   "foley",
+   33.84194,
+   0.60875
+  ],
+  "shell_dirt_3": [
+   "foley",
+   34.49069,
+   0.7
+  ],
+  "step_concrete_run_1": [
+   "steps",
+   0,
+   0.22481
+  ],
+  "step_concrete_run_2": [
+   "steps",
+   0.26481,
+   0.18084
+  ],
+  "step_concrete_run_3": [
+   "steps",
+   0.48566,
+   0.18678
+  ],
+  "step_concrete_run_4": [
+   "steps",
+   0.71244,
+   0.152
+  ],
+  "step_concrete_walk_1": [
+   "steps",
+   0.90444,
+   0.18534
+  ],
+  "step_concrete_walk_2": [
+   "steps",
+   1.12978,
+   0.17325
+  ],
+  "step_concrete_walk_3": [
+   "steps",
+   1.34303,
+   0.4
+  ],
+  "step_concrete_walk_4": [
+   "steps",
+   1.78303,
+   0.22534
+  ],
+  "land_concrete_1": [
+   "steps",
+   2.04838,
+   0.22569
+  ],
+  "land_concrete_2": [
+   "steps",
+   2.31406,
+   0.21728
+  ],
+  "step_metal_run_1": [
+   "steps",
+   2.57134,
+   0.29531
+  ],
+  "step_metal_run_2": [
+   "steps",
+   2.90666,
+   0.24631
+  ],
+  "step_metal_run_3": [
+   "steps",
+   3.19297,
+   0.3
+  ],
+  "step_metal_run_4": [
+   "steps",
+   3.53297,
+   0.25556
+  ],
+  "step_metal_walk_1": [
+   "steps",
+   3.82853,
+   0.4
+  ],
+  "step_metal_walk_2": [
+   "steps",
+   4.26853,
+   0.4
+  ],
+  "step_metal_walk_3": [
+   "steps",
+   4.70853,
+   0.36728
+  ],
+  "step_metal_walk_4": [
+   "steps",
+   5.11581,
+   0.36462
+  ],
+  "land_metal_1": [
+   "steps",
+   5.52044,
+   0.35831
+  ],
+  "land_metal_2": [
+   "steps",
+   5.91875,
+   0.33444
+  ],
+  "step_wood_run_1": [
+   "steps",
+   6.29319,
+   0.14288
+  ],
+  "step_wood_run_2": [
+   "steps",
+   6.47606,
+   0.12681
+  ],
+  "step_wood_run_3": [
+   "steps",
+   6.64288,
+   0.13306
+  ],
+  "step_wood_run_4": [
+   "steps",
+   6.81594,
+   0.15069
+  ],
+  "step_wood_walk_1": [
+   "steps",
+   7.00662,
+   0.24025
+  ],
+  "step_wood_walk_2": [
+   "steps",
+   7.28688,
+   0.23525
+  ],
+  "step_wood_walk_3": [
+   "steps",
+   7.56212,
+   0.24475
+  ],
+  "step_wood_walk_4": [
+   "steps",
+   7.84687,
+   0.22856
+  ],
+  "land_wood_1": [
+   "steps",
+   8.11544,
+   0.287
+  ],
+  "land_wood_2": [
+   "steps",
+   8.44244,
+   0.44041
+  ],
+  "step_dirt_run_1": [
+   "steps",
+   8.92284,
+   0.33319
+  ],
+  "step_dirt_run_2": [
+   "steps",
+   9.29603,
+   0.33353
+  ],
+  "step_dirt_run_3": [
+   "steps",
+   9.66956,
+   0.34
+  ],
+  "step_dirt_run_4": [
+   "steps",
+   10.04956,
+   0.308
+  ],
+  "step_dirt_walk_1": [
+   "steps",
+   10.39756,
+   0.4
+  ],
+  "step_dirt_walk_2": [
+   "steps",
+   10.83756,
+   0.4
+  ],
+  "step_dirt_walk_3": [
+   "steps",
+   11.27756,
+   0.4
+  ],
+  "step_dirt_walk_4": [
+   "steps",
+   11.71756,
+   0.4
+  ],
+  "land_dirt_1": [
+   "steps",
+   12.15756,
+   0.55
+  ],
+  "land_dirt_2": [
+   "steps",
+   12.74756,
+   0.55
+  ],
+  "step_grass_run_1": [
+   "steps",
+   13.33756,
+   0.34
+  ],
+  "step_grass_run_2": [
+   "steps",
+   13.71756,
+   0.34
+  ],
+  "step_grass_run_3": [
+   "steps",
+   14.09756,
+   0.34
+  ],
+  "step_grass_run_4": [
+   "steps",
+   14.47756,
+   0.21491
+  ],
+  "step_grass_walk_1": [
+   "steps",
+   14.73247,
+   0.4
+  ],
+  "step_grass_walk_2": [
+   "steps",
+   15.17247,
+   0.4
+  ],
+  "step_grass_walk_3": [
+   "steps",
+   15.61247,
+   0.4
+  ],
+  "step_grass_walk_4": [
+   "steps",
+   16.05247,
+   0.4
+  ],
+  "land_grass_1": [
+   "steps",
+   16.49247,
+   0.55
+  ],
+  "land_grass_2": [
+   "steps",
+   17.08247,
+   0.55
+  ],
+  "step_water_1": [
+   "steps",
+   17.67247,
+   0.41572
+  ],
+  "step_water_2": [
+   "steps",
+   18.12819,
+   0.46178
+  ],
+  "step_water_3": [
+   "steps",
+   18.62997,
+   0.378
+  ],
+  "step_water_4": [
+   "steps",
+   19.04797,
+   0.50672
+  ],
+  "step_glass_1": [
+   "steps",
+   19.59469,
+   0.22481
+  ],
+  "step_glass_2": [
+   "steps",
+   19.8595,
+   0.18084
+  ],
+  "step_glass_3": [
+   "steps",
+   20.08034,
+   0.18678
+  ],
+  "step_glass_4": [
+   "steps",
+   20.30712,
+   0.169
+  ],
+  "jump_1": [
+   "steps",
+   20.51612,
+   0.41184
+  ],
+  "jump_2": [
+   "steps",
+   20.96797,
+   0.4
+  ],
+  "landHard_1": [
+   "steps",
+   21.40797,
+   0.54128
+  ],
+  "imp_concrete_1": [
+   "impacts",
+   0,
+   0.3
+  ],
+  "imp_concrete_2": [
+   "impacts",
+   0.34,
+   0.3
+  ],
+  "imp_concrete_3": [
+   "impacts",
+   0.68,
+   0.3
+  ],
+  "imp_concrete_4": [
+   "impacts",
+   1.02,
+   0.3
+  ],
+  "imp_concrete_5": [
+   "impacts",
+   1.36,
+   0.3
+  ],
+  "imp_metal_1": [
+   "impacts",
+   1.7,
+   0.26884
+  ],
+  "imp_metal_2": [
+   "impacts",
+   2.00884,
+   0.14056
+  ],
+  "imp_metal_3": [
+   "impacts",
+   2.18941,
+   0.11625
+  ],
+  "imp_metal_4": [
+   "impacts",
+   2.34566,
+   0.34
+  ],
+  "imp_metal_5": [
+   "impacts",
+   2.72566,
+   0.2105
+  ],
+  "imp_wood_1": [
+   "impacts",
+   2.97616,
+   0.3
+  ],
+  "imp_wood_2": [
+   "impacts",
+   3.31616,
+   0.3
+  ],
+  "imp_wood_3": [
+   "impacts",
+   3.65616,
+   0.3
+  ],
+  "imp_wood_4": [
+   "impacts",
+   3.99616,
+   0.3
+  ],
+  "imp_glass_1": [
+   "impacts",
+   4.33616,
+   0.4
+  ],
+  "imp_glass_2": [
+   "impacts",
+   4.77616,
+   0.4
+  ],
+  "imp_glass_3": [
+   "impacts",
+   5.21616,
+   0.4
+  ],
+  "imp_glass_4": [
+   "impacts",
+   5.65616,
+   0.4
+  ],
+  "imp_dirt_1": [
+   "impacts",
+   6.09616,
+   0.22
+  ],
+  "imp_dirt_2": [
+   "impacts",
+   6.35616,
+   0.22
+  ],
+  "imp_dirt_3": [
+   "impacts",
+   6.61616,
+   0.22
+  ],
+  "imp_dirt_4": [
+   "impacts",
+   6.87616,
+   0.22
+  ],
+  "imp_water_1": [
+   "impacts",
+   7.13616,
+   0.6
+  ],
+  "imp_water_2": [
+   "impacts",
+   7.77616,
+   0.5
+  ],
+  "imp_water_3": [
+   "impacts",
+   8.31616,
+   0.51938
+  ],
+  "flesh_1": [
+   "impacts",
+   8.87553,
+   0.29703
+  ],
+  "flesh_2": [
+   "impacts",
+   9.21256,
+   0.27844
+  ],
+  "flesh_3": [
+   "impacts",
+   9.531,
+   0.26209
+  ],
+  "flesh_4": [
+   "impacts",
+   9.83309,
+   0.25
+  ],
+  "ric_1": [
+   "impacts",
+   10.12309,
+   0.59959
+  ],
+  "ric_2": [
+   "impacts",
+   10.76269,
+   0.54581
+  ],
+  "ric_3": [
+   "impacts",
+   11.3485,
+   0.7435
+  ],
+  "ric_4": [
+   "impacts",
+   12.132,
+   0.40269
+  ],
+  "ric_5": [
+   "impacts",
+   12.57469,
+   0.38341
+  ],
+  "ric_6": [
+   "impacts",
+   12.99809,
+   0.23137
+  ],
+  "ric_7": [
+   "impacts",
+   13.26947,
+   0.25662
+  ],
+  "whiz_1": [
+   "impacts",
+   13.56609,
+   0.50141
+  ],
+  "whiz_2": [
+   "impacts",
+   14.1075,
+   0.38109
+  ],
+  "whiz_3": [
+   "impacts",
+   14.52859,
+   0.45775
+  ],
+  "whiz_4": [
+   "impacts",
+   15.02634,
+   0.40844
+  ],
+  "whiz_5": [
+   "impacts",
+   15.47478,
+   0.19391
+  ],
+  "glassBreak_1": [
+   "impacts",
+   15.70869,
+   0.54028
+  ],
+  "glassBreak_2": [
+   "impacts",
+   16.28897,
+   0.78781
+  ],
+  "glassBreak_3": [
+   "impacts",
+   17.11678,
+   0.76225
+  ],
+  "hurt_1": [
+   "impacts",
+   17.91903,
+   0.3
+  ],
+  "hurt_2": [
+   "impacts",
+   18.25903,
+   0.3
+  ],
+  "hurt_3": [
+   "impacts",
+   18.59903,
+   0.3
+  ],
+  "death_1": [
+   "impacts",
+   18.93903,
+   1.17781
+  ],
+  "death_2": [
+   "impacts",
+   20.15684,
+   1.00297
+  ],
+  "death_3": [
+   "impacts",
+   21.19981,
+   1.14697
+  ],
+  "death_4": [
+   "impacts",
+   22.38678,
+   1.00241
+  ],
+  "death_5": [
+   "impacts",
+   23.42919,
+   1.06272
+  ],
+  "death_6": [
+   "impacts",
+   24.53191,
+   1.2065
+  ],
+  "bodyfall_1": [
+   "impacts",
+   25.77841,
+   0.56944
+  ],
+  "ui_hover_1": [
+   "ui",
+   0,
+   0.05789
+  ],
+  "ui_click_1": [
+   "ui",
+   0.09789,
+   0.11163
+  ],
+  "ui_confirm_1": [
+   "ui",
+   0.24952,
+   0.54431
+  ],
+  "ui_back_1": [
+   "ui",
+   0.83383,
+   0.08011
+  ],
+  "ui_deploy_1": [
+   "ui",
+   0.95395,
+   0.42308
+  ],
+  "ui_tick_1": [
+   "ui",
+   1.41703,
+   0.04288
+  ],
+  "ui_error_1": [
+   "ui",
+   1.49991,
+   0.13932
+  ],
+  "ui_rank_1": [
+   "ui",
+   1.67923,
+   1.5
+  ],
+  "hit_1": [
+   "ui",
+   3.21923,
+   0.1
+  ],
+  "headshot_1": [
+   "ui",
+   3.35923,
+   0.14152
+  ],
+  "kill_1": [
+   "ui",
+   3.54075,
+   0.2917
+  ],
+  "capture_1": [
+   "ui",
+   3.87245,
+   0.59293
+  ],
+  "lost_1": [
+   "ui",
+   4.50537,
+   1.2
+  ],
+  "spawn_1": [
+   "ui",
+   5.74537,
+   1.3
+  ],
+  "spot_1": [
+   "ui",
+   7.08537,
+   0.18408
+  ],
+  "tick_1": [
+   "ui",
+   7.30946,
+   0.02279
+  ],
+  "countdown_1": [
+   "ui",
+   7.37224,
+   0.10578
+  ],
+  "mission_1": [
+   "ui",
+   7.51803,
+   0.43367
+  ],
+  "streakReady_1": [
+   "ui",
+   7.9917,
+   1.3
+  ],
+  "uav_1": [
+   "ui",
+   9.3317,
+   0.85227
+  ],
+  "radio_1": [
+   "ui",
+   10.22397,
+   0.12823
+  ],
+  "artyIn_1": [
+   "ui",
+   10.3922,
+   2.1
+  ],
+  "siren_1": [
+   "ui",
+   12.5322,
+   0.9963
+  ],
+  "heartbeat_1": [
+   "ui",
+   13.5685,
+   0.45
+  ],
+  "ability_1": [
+   "ui",
+   14.0585,
+   0.85798
+  ],
+  "abilityEnd_1": [
+   "ui",
+   14.95649,
+   1.18692
+  ],
+  "thunder_1": [
+   "thunder",
+   0,
+   9
+  ],
+  "thunder_2": [
+   "thunder",
+   9.04,
+   8
+  ],
+  "thunder_3": [
+   "thunder",
+   17.08,
+   6.5
+  ],
+  "thunder_4": [
+   "thunder",
+   23.62,
+   6.5
+  ],
+  "sting_win_1": [
+   "stings",
+   0,
+   5.71787
+  ],
+  "sting_lose_1": [
+   "stings",
+   5.75787,
+   5.34213
+  ],
+  "sting_capture_1": [
+   "stings",
+   11.14,
+   2.68331
+  ]
+ },
+ "groups": {
+  "gun_k7": {
+   "v": [
+    "gun_k7_1",
+    "gun_k7_2",
+    "gun_k7_3"
+   ],
+   "b": "w",
+   "g": 0.78,
+   "p": 0.025,
+   "far": "far_rifle",
+   "ref": 9,
+   "n": [
+    38,
+    80
+   ]
+  },
+  "gun_arco": {
+   "v": [
+    "gun_arco_1",
+    "gun_arco_2",
+    "gun_arco_3"
+   ],
+   "b": "w",
+   "g": 0.74,
+   "p": 0.025,
+   "far": "far_rifle",
+   "ref": 9,
+   "n": [
+    38,
+    80
+   ]
+  },
+  "gun_vespa": {
+   "v": [
+    "gun_vespa_1",
+    "gun_vespa_2",
+    "gun_vespa_3"
+   ],
+   "b": "w",
+   "g": 0.66,
+   "p": 0.025,
+   "far": "far_small",
+   "ref": 9,
+   "n": [
+    38,
+    80
+   ]
+  },
+  "gun_faisca": {
+   "v": [
+    "gun_faisca_1",
+    "gun_faisca_2",
+    "gun_faisca_3"
+   ],
+   "b": "w",
+   "g": 0.6,
+   "p": 0.025,
+   "far": "far_small",
+   "ref": 9,
+   "n": [
+    38,
+    80
+   ]
+  },
+  "gun_martelo": {
+   "v": [
+    "gun_martelo_1",
+    "gun_martelo_2"
+   ],
+   "b": "w",
+   "g": 0.95,
+   "p": 0.025,
+   "far": "far_heavy",
+   "ref": 9,
+   "n": [
+    38,
+    80
+   ]
+  },
+  "gun_trovao": {
+   "v": [
+    "gun_trovao_1",
+    "gun_trovao_2",
+    "gun_trovao_3"
+   ],
+   "b": "w",
+   "g": 0.84,
+   "p": 0.025,
+   "far": "far_rifle",
+   "ref": 9,
+   "n": [
+    38,
+    80
+   ]
+  },
+  "gun_bigorna": {
+   "v": [
+    "gun_bigorna_1",
+    "gun_bigorna_2",
+    "gun_bigorna_3"
+   ],
+   "b": "w",
+   "g": 0.92,
+   "p": 0.025,
+   "far": "far_heavy",
+   "ref": 9,
+   "n": [
+    38,
+    80
+   ]
+  },
+  "gun_lanca": {
+   "v": [
+    "gun_lanca_1",
+    "gun_lanca_2"
+   ],
+   "b": "w",
+   "g": 0.92,
+   "p": 0.025,
+   "far": "far_heavy",
+   "ref": 9,
+   "n": [
+    38,
+    80
+   ]
+  },
+  "gun_orion": {
+   "v": [
+    "gun_orion_1"
+   ],
+   "b": "w",
+   "g": 1,
+   "p": 0.03,
+   "far": "far_heavy",
+   "ref": 9,
+   "n": [
+    38,
+    80
+   ]
+  },
+  "gun_vigia": {
+   "v": [
+    "gun_vigia_1"
+   ],
+   "b": "w",
+   "g": 0.95,
+   "p": 0.03,
+   "far": "far_heavy",
+   "ref": 9,
+   "n": [
+    38,
+    80
+   ]
+  },
+  "gun_p9": {
+   "v": [
+    "gun_p9_1",
+    "gun_p9_2"
+   ],
+   "b": "w",
+   "g": 0.62,
+   "p": 0.025,
+   "far": "far_small",
+   "ref": 9,
+   "n": [
+    38,
+    80
+   ]
+  },
+  "gun_juiz": {
+   "v": [
+    "gun_juiz_1",
+    "gun_juiz_2"
+   ],
+   "b": "w",
+   "g": 0.88,
+   "p": 0.025,
+   "far": "far_heavy",
+   "ref": 9,
+   "n": [
+    38,
+    80
+   ]
+  },
+  "gun_rajada": {
+   "v": [
+    "gun_rajada_1",
+    "gun_rajada_2",
+    "gun_rajada_3"
+   ],
+   "b": "w",
+   "g": 0.58,
+   "p": 0.025,
+   "far": "far_small",
+   "ref": 9,
+   "n": [
+    38,
+    80
+   ]
+  },
+  "gun_rpg": {
+   "v": [
+    "gun_rpg_1"
+   ],
+   "b": "w",
+   "g": 0.95,
+   "p": 0.025,
+   "far": "far_heavy",
+   "ref": 9,
+   "n": [
+    38,
+    80
+   ]
+  },
+  "far_rifle": {
+   "v": [
+    "far_rifle_1",
+    "far_rifle_2",
+    "far_rifle_3"
+   ],
+   "b": "w",
+   "g": 0.9,
+   "p": 0.05,
+   "ref": 60
+  },
+  "far_small": {
+   "v": [
+    "far_small_1",
+    "far_small_2",
+    "far_small_3"
+   ],
+   "b": "w",
+   "g": 0.75,
+   "p": 0.05,
+   "ref": 60
+  },
+  "far_heavy": {
+   "v": [
+    "far_heavy_1",
+    "far_heavy_2",
+    "far_heavy_3"
+   ],
+   "b": "w",
+   "g": 1.1,
+   "p": 0.05,
+   "ref": 60
+  },
+  "battle": {
+   "v": [
+    "battle_1",
+    "battle_2",
+    "battle_3",
+    "battle_4",
+    "battle_5",
+    "battle_6",
+    "battle_7",
+    "battle_8"
+   ],
+   "b": "a",
+   "g": 0.5,
+   "p": 0.08,
+   "ref": 70
+  },
+  "explosion": {
+   "v": [
+    "exp_grenade_1",
+    "exp_grenade_2"
+   ],
+   "b": "s",
+   "g": 1,
+   "p": 0.04,
+   "far": "exp_far",
+   "ref": 14,
+   "n": [
+    50,
+    120
+   ]
+  },
+  "explosion_rocket": {
+   "v": [
+    "exp_rocket_1"
+   ],
+   "b": "s",
+   "g": 1.05,
+   "p": 0.05,
+   "far": "exp_far",
+   "ref": 15,
+   "n": [
+    50,
+    120
+   ]
+  },
+  "explosion_barrel": {
+   "v": [
+    "exp_barrel_1"
+   ],
+   "b": "s",
+   "g": 1,
+   "p": 0.06,
+   "far": "exp_far",
+   "ref": 13,
+   "n": [
+    50,
+    120
+   ]
+  },
+  "explosion_big": {
+   "v": [
+    "exp_big_1"
+   ],
+   "b": "s",
+   "g": 1.25,
+   "p": 0.03,
+   "far": "exp_far_big",
+   "ref": 22,
+   "n": [
+    70,
+    150
+   ]
+  },
+  "exp_far": {
+   "v": [
+    "exp_far_1",
+    "exp_far_2"
+   ],
+   "b": "s",
+   "g": 0.9,
+   "p": 0.06,
+   "ref": 70
+  },
+  "exp_far_big": {
+   "v": [
+    "exp_far_3"
+   ],
+   "b": "s",
+   "g": 1.4,
+   "p": 0.04,
+   "ref": 90
+  },
+  "debris": {
+   "v": [
+    "debris_1",
+    "debris_2",
+    "debris_3"
+   ],
+   "b": "s",
+   "g": 0.8,
+   "p": 0.08,
+   "ref": 8
+  },
+  "collapse": {
+   "v": [
+    "collapse_1"
+   ],
+   "b": "s",
+   "g": 1,
+   "p": 0.06,
+   "ref": 14
+  },
+  "glass_break": {
+   "v": [
+    "glassBreak_1",
+    "glassBreak_2",
+    "glassBreak_3"
+   ],
+   "b": "s",
+   "g": 0.9,
+   "p": 0.08,
+   "ref": 7
+  },
+  "draw": {
+   "v": [
+    "draw_1",
+    "draw_2"
+   ],
+   "b": "f",
+   "g": 0.55,
+   "p": 0.04
+  },
+  "pickup": {
+   "v": [
+    "pickup_1"
+   ],
+   "b": "f",
+   "g": 0.6,
+   "p": 0.04
+  },
+  "scope": {
+   "v": [
+    "scope_1"
+   ],
+   "b": "f",
+   "g": 0.4,
+   "p": 0.04
+  },
+  "scopeback": {
+   "v": [
+    "scopeback_1"
+   ],
+   "b": "f",
+   "g": 0.4,
+   "p": 0.04
+  },
+  "bolt": {
+   "v": [
+    "bolt_1"
+   ],
+   "b": "f",
+   "g": 0.75,
+   "p": 0.03
+  },
+  "boltFwd": {
+   "v": [
+    "boltFwd_1"
+   ],
+   "b": "f",
+   "g": 0.75,
+   "p": 0.03
+  },
+  "pump": {
+   "v": [
+    "pump_1"
+   ],
+   "b": "f",
+   "g": 0.8,
+   "p": 0.03
+  },
+  "shellIn": {
+   "v": [
+    "shellIn_1",
+    "shellIn_2",
+    "shellIn_3"
+   ],
+   "b": "f",
+   "g": 1,
+   "p": 0.03
+  },
+  "pin": {
+   "v": [
+    "pin_1"
+   ],
+   "b": "f",
+   "g": 0.8,
+   "p": 0.04,
+   "ref": 4,
+   "l": [
+    {
+     "n": "throw",
+     "g": 0.9,
+     "d": 0.16
+    }
+   ]
+  },
+  "throw": {
+   "v": [
+    "throw_1"
+   ],
+   "b": "f",
+   "g": 0.7,
+   "p": 0.05,
+   "ref": 4
+  },
+  "nade_bounce": {
+   "v": [
+    "nadeBounce_1",
+    "nadeBounce_2"
+   ],
+   "b": "s",
+   "g": 0.9,
+   "p": 0.08,
+   "ref": 5
+  },
+  "empty": {
+   "v": [
+    "empty_1"
+   ],
+   "b": "f",
+   "g": 0.8,
+   "p": 0.03
+  },
+  "firemode": {
+   "v": [
+    "firemode_1"
+   ],
+   "b": "f",
+   "g": 0.7,
+   "p": 0.03
+  },
+  "click": {
+   "v": [
+    "click_1"
+   ],
+   "b": "f",
+   "g": 0.6,
+   "p": 0.04
+  },
+  "clipfall": {
+   "v": [
+    "clipfall_1"
+   ],
+   "b": "f",
+   "g": 0.6,
+   "p": 0.06
+  },
+  "lawload": {
+   "v": [
+    "lawload_1"
+   ],
+   "b": "f",
+   "g": 0.8,
+   "p": 0.03
+  },
+  "lawlock": {
+   "v": [
+    "lawlock_1"
+   ],
+   "b": "f",
+   "g": 0.8,
+   "p": 0.03
+  },
+  "casing": {
+   "v": [
+    "casing_1",
+    "casing_2",
+    "casing_3"
+   ],
+   "b": "f",
+   "g": 0.5,
+   "p": 0.08
+  },
+  "melee": {
+   "v": [
+    "melee_1",
+    "melee_2",
+    "melee_3"
+   ],
+   "b": "f",
+   "g": 0.7,
+   "p": 0.06,
+   "ref": 4
+  },
+  "meleeHit": {
+   "v": [
+    "meleeHit_1",
+    "meleeHit_2"
+   ],
+   "b": "s",
+   "g": 0.9,
+   "p": 0.05,
+   "ref": 5
+  },
+  "vault": {
+   "v": [
+    "vault_1"
+   ],
+   "b": "f",
+   "g": 0.6,
+   "p": 0.05
+  },
+  "gear": {
+   "v": [
+    "gear_1",
+    "gear_2",
+    "gear_3",
+    "gear_4"
+   ],
+   "b": "f",
+   "g": 0.28,
+   "p": 0.08
+  },
+  "lowammo": {
+   "v": [
+    "lowammo_1"
+   ],
+   "b": "w",
+   "g": 0.3,
+   "p": 0.02
+  },
+  "shell_concrete": {
+   "v": [
+    "shell_concrete_1",
+    "shell_concrete_2",
+    "shell_concrete_3"
+   ],
+   "b": "f",
+   "g": 0.3,
+   "p": 0.08
+  },
+  "shell_metal": {
+   "v": [
+    "shell_metal_1",
+    "shell_metal_2",
+    "shell_metal_3"
+   ],
+   "b": "f",
+   "g": 0.3,
+   "p": 0.08
+  },
+  "shell_dirt": {
+   "v": [
+    "shell_dirt_1",
+    "shell_dirt_2",
+    "shell_dirt_3"
+   ],
+   "b": "f",
+   "g": 0.22,
+   "p": 0.08
+  },
+  "jump": {
+   "v": [
+    "jump_1",
+    "jump_2"
+   ],
+   "b": "f",
+   "g": 0.45,
+   "p": 0.06
+  },
+  "land_hard": {
+   "v": [
+    "landHard_1"
+   ],
+   "b": "f",
+   "g": 0.9,
+   "p": 0.05
+  },
+  "ricochet": {
+   "v": [
+    "ric_1",
+    "ric_2",
+    "ric_3",
+    "ric_4",
+    "ric_5",
+    "ric_6",
+    "ric_7"
+   ],
+   "b": "s",
+   "g": 0.75,
+   "p": 0.06,
+   "ref": 7
+  },
+  "whiz": {
+   "v": [
+    "whiz_1",
+    "whiz_2",
+    "whiz_3",
+    "whiz_4",
+    "whiz_5"
+   ],
+   "b": "s",
+   "g": 0.8,
+   "p": 0.06,
+   "ref": 5
+  },
+  "flesh": {
+   "v": [
+    "flesh_1",
+    "flesh_2",
+    "flesh_3",
+    "flesh_4"
+   ],
+   "b": "s",
+   "g": 0.8,
+   "p": 0.06,
+   "ref": 6
+  },
+  "hurt": {
+   "v": [
+    "hurt_1",
+    "hurt_2",
+    "hurt_3"
+   ],
+   "b": "s",
+   "g": 0.9,
+   "p": 0.05
+  },
+  "death": {
+   "v": [
+    "death_1",
+    "death_2",
+    "death_3",
+    "death_4",
+    "death_5",
+    "death_6"
+   ],
+   "b": "s",
+   "g": 0.85,
+   "p": 0.05,
+   "ref": 8
+  },
+  "bodyfall": {
+   "v": [
+    "bodyfall_1"
+   ],
+   "b": "s",
+   "g": 0.7,
+   "p": 0.08,
+   "ref": 5
+  },
+  "hit": {
+   "v": [
+    "hit_1"
+   ],
+   "b": "u",
+   "g": 0.8,
+   "p": 0.015
+  },
+  "headshot": {
+   "v": [
+    "headshot_1"
+   ],
+   "b": "u",
+   "g": 0.7,
+   "p": 0.015
+  },
+  "kill": {
+   "v": [
+    "kill_1"
+   ],
+   "b": "u",
+   "g": 0.85,
+   "p": 0.015
+  },
+  "capture": {
+   "v": [
+    "capture_1"
+   ],
+   "b": "u",
+   "g": 0.9,
+   "p": 0
+  },
+  "lost": {
+   "v": [
+    "lost_1"
+   ],
+   "b": "u",
+   "g": 0.9,
+   "p": 0
+  },
+  "spawn": {
+   "v": [
+    "spawn_1"
+   ],
+   "b": "u",
+   "g": 0.5,
+   "p": 0.02
+  },
+  "spot": {
+   "v": [
+    "spot_1"
+   ],
+   "b": "u",
+   "g": 0.6,
+   "p": 0.02
+  },
+  "tick": {
+   "v": [
+    "tick_1"
+   ],
+   "b": "u",
+   "g": 0.6,
+   "p": 0.01
+  },
+  "countdown": {
+   "v": [
+    "countdown_1"
+   ],
+   "b": "u",
+   "g": 0.6,
+   "p": 0
+  },
+  "mission": {
+   "v": [
+    "mission_1"
+   ],
+   "b": "u",
+   "g": 0.7,
+   "p": 0
+  },
+  "streakReady": {
+   "v": [
+    "streakReady_1"
+   ],
+   "b": "u",
+   "g": 0.7,
+   "p": 0
+  },
+  "uav": {
+   "v": [
+    "uav_1"
+   ],
+   "b": "u",
+   "g": 0.6,
+   "p": 0
+  },
+  "radio": {
+   "v": [
+    "radio_1"
+   ],
+   "b": "u",
+   "g": 0.55,
+   "p": 0.03
+  },
+  "artyIn": {
+   "v": [
+    "artyIn_1"
+   ],
+   "b": "s",
+   "g": 1,
+   "p": 0.04,
+   "ref": 30
+  },
+  "siren": {
+   "v": [
+    "siren_1"
+   ],
+   "b": "s",
+   "g": 0.55,
+   "p": 0,
+   "ref": 14
+  },
+  "heartbeat": {
+   "v": [
+    "heartbeat_1"
+   ],
+   "b": "u",
+   "g": 0.9,
+   "p": 0.02
+  },
+  "ability": {
+   "v": [
+    "ability_1"
+   ],
+   "b": "s",
+   "g": 0.55,
+   "p": 0.02,
+   "syn": 0.75
+  },
+  "abilityEnd": {
+   "v": [
+    "abilityEnd_1"
+   ],
+   "b": "s",
+   "g": 0.5,
+   "p": 0.02,
+   "syn": 0.75
+  },
+  "thunder": {
+   "v": [
+    "thunder_1",
+    "thunder_2",
+    "thunder_3",
+    "thunder_4"
+   ],
+   "b": "a",
+   "g": 1,
+   "p": 0.05
+  },
+  "sting_win": {
+   "v": [
+    "sting_win_1"
+   ],
+   "b": "m",
+   "g": 1,
+   "p": 0
+  },
+  "sting_lose": {
+   "v": [
+    "sting_lose_1"
+   ],
+   "b": "m",
+   "g": 1,
+   "p": 0
+  },
+  "sting_capture": {
+   "v": [
+    "sting_capture_1"
+   ],
+   "b": "m",
+   "g": 0.75,
+   "p": 0
+  },
+  "ui_hover": {
+   "v": [
+    "ui_hover_1"
+   ],
+   "b": "u",
+   "g": 0.16,
+   "p": 0.03
+  },
+  "ui_click": {
+   "v": [
+    "ui_click_1"
+   ],
+   "b": "u",
+   "g": 0.55,
+   "p": 0
+  },
+  "ui_confirm": {
+   "v": [
+    "ui_confirm_1"
+   ],
+   "b": "u",
+   "g": 0.55,
+   "p": 0
+  },
+  "ui_back": {
+   "v": [
+    "ui_back_1"
+   ],
+   "b": "u",
+   "g": 0.55,
+   "p": 0
+  },
+  "ui_deploy": {
+   "v": [
+    "ui_deploy_1"
+   ],
+   "b": "u",
+   "g": 0.55,
+   "p": 0
+  },
+  "ui_tick": {
+   "v": [
+    "ui_tick_1"
+   ],
+   "b": "u",
+   "g": 0.4,
+   "p": 0
+  },
+  "ui_error": {
+   "v": [
+    "ui_error_1"
+   ],
+   "b": "u",
+   "g": 0.55,
+   "p": 0
+  },
+  "ui_rank": {
+   "v": [
+    "ui_rank_1"
+   ],
+   "b": "u",
+   "g": 0.55,
+   "p": 0
+  },
+  "step_concrete_run": {
+   "v": [
+    "step_concrete_run_1",
+    "step_concrete_run_2",
+    "step_concrete_run_3",
+    "step_concrete_run_4"
+   ],
+   "b": "f",
+   "g": 1,
+   "p": 0.05,
+   "ref": 5
+  },
+  "step_concrete_walk": {
+   "v": [
+    "step_concrete_walk_1",
+    "step_concrete_walk_2",
+    "step_concrete_walk_3",
+    "step_concrete_walk_4"
+   ],
+   "b": "f",
+   "g": 1,
+   "p": 0.05,
+   "ref": 5
+  },
+  "land_concrete": {
+   "v": [
+    "land_concrete_1",
+    "land_concrete_2"
+   ],
+   "b": "f",
+   "g": 1,
+   "p": 0.05,
+   "ref": 5
+  },
+  "step_metal_run": {
+   "v": [
+    "step_metal_run_1",
+    "step_metal_run_2",
+    "step_metal_run_3",
+    "step_metal_run_4"
+   ],
+   "b": "f",
+   "g": 1,
+   "p": 0.05,
+   "ref": 5
+  },
+  "step_metal_walk": {
+   "v": [
+    "step_metal_walk_1",
+    "step_metal_walk_2",
+    "step_metal_walk_3",
+    "step_metal_walk_4"
+   ],
+   "b": "f",
+   "g": 1,
+   "p": 0.05,
+   "ref": 5
+  },
+  "land_metal": {
+   "v": [
+    "land_metal_1",
+    "land_metal_2"
+   ],
+   "b": "f",
+   "g": 1,
+   "p": 0.05,
+   "ref": 5
+  },
+  "step_wood_run": {
+   "v": [
+    "step_wood_run_1",
+    "step_wood_run_2",
+    "step_wood_run_3",
+    "step_wood_run_4"
+   ],
+   "b": "f",
+   "g": 1,
+   "p": 0.05,
+   "ref": 5
+  },
+  "step_wood_walk": {
+   "v": [
+    "step_wood_walk_1",
+    "step_wood_walk_2",
+    "step_wood_walk_3",
+    "step_wood_walk_4"
+   ],
+   "b": "f",
+   "g": 1,
+   "p": 0.05,
+   "ref": 5
+  },
+  "land_wood": {
+   "v": [
+    "land_wood_1",
+    "land_wood_2"
+   ],
+   "b": "f",
+   "g": 1,
+   "p": 0.05,
+   "ref": 5
+  },
+  "step_dirt_run": {
+   "v": [
+    "step_dirt_run_1",
+    "step_dirt_run_2",
+    "step_dirt_run_3",
+    "step_dirt_run_4"
+   ],
+   "b": "f",
+   "g": 1,
+   "p": 0.05,
+   "ref": 5
+  },
+  "step_dirt_walk": {
+   "v": [
+    "step_dirt_walk_1",
+    "step_dirt_walk_2",
+    "step_dirt_walk_3",
+    "step_dirt_walk_4"
+   ],
+   "b": "f",
+   "g": 1,
+   "p": 0.05,
+   "ref": 5
+  },
+  "land_dirt": {
+   "v": [
+    "land_dirt_1",
+    "land_dirt_2"
+   ],
+   "b": "f",
+   "g": 1,
+   "p": 0.05,
+   "ref": 5
+  },
+  "step_grass_run": {
+   "v": [
+    "step_grass_run_1",
+    "step_grass_run_2",
+    "step_grass_run_3",
+    "step_grass_run_4"
+   ],
+   "b": "f",
+   "g": 1,
+   "p": 0.05,
+   "ref": 5
+  },
+  "step_grass_walk": {
+   "v": [
+    "step_grass_walk_1",
+    "step_grass_walk_2",
+    "step_grass_walk_3",
+    "step_grass_walk_4"
+   ],
+   "b": "f",
+   "g": 1,
+   "p": 0.05,
+   "ref": 5
+  },
+  "land_grass": {
+   "v": [
+    "land_grass_1",
+    "land_grass_2"
+   ],
+   "b": "f",
+   "g": 1,
+   "p": 0.05,
+   "ref": 5
+  },
+  "step_water_walk": {
+   "v": [
+    "step_water_1",
+    "step_water_2",
+    "step_water_3",
+    "step_water_4"
+   ],
+   "b": "f",
+   "g": 1,
+   "p": 0.06,
+   "ref": 5
+  },
+  "step_water_run": {
+   "v": [
+    "step_water_1",
+    "step_water_2",
+    "step_water_3",
+    "step_water_4"
+   ],
+   "b": "f",
+   "g": 1,
+   "p": 0.06,
+   "ref": 5
+  },
+  "land_water": {
+   "v": [
+    "land_concrete_1",
+    "land_concrete_2"
+   ],
+   "b": "f",
+   "g": 1,
+   "p": 0.05,
+   "ref": 5
+  },
+  "step_glass_walk": {
+   "v": [
+    "step_glass_1",
+    "step_glass_2",
+    "step_glass_3",
+    "step_glass_4"
+   ],
+   "b": "f",
+   "g": 1,
+   "p": 0.06,
+   "ref": 5
+  },
+  "step_glass_run": {
+   "v": [
+    "step_glass_1",
+    "step_glass_2",
+    "step_glass_3",
+    "step_glass_4"
+   ],
+   "b": "f",
+   "g": 1,
+   "p": 0.06,
+   "ref": 5
+  },
+  "land_glass": {
+   "v": [
+    "land_concrete_1",
+    "land_concrete_2"
+   ],
+   "b": "f",
+   "g": 1,
+   "p": 0.05,
+   "ref": 5
+  },
+  "imp_concrete": {
+   "v": [
+    "imp_concrete_1",
+    "imp_concrete_2",
+    "imp_concrete_3",
+    "imp_concrete_4",
+    "imp_concrete_5"
+   ],
+   "b": "s",
+   "g": 0.8,
+   "p": 0.1,
+   "ref": 6
+  },
+  "imp_metal": {
+   "v": [
+    "imp_metal_1",
+    "imp_metal_2",
+    "imp_metal_3",
+    "imp_metal_4",
+    "imp_metal_5"
+   ],
+   "b": "s",
+   "g": 0.8,
+   "p": 0.1,
+   "ref": 6
+  },
+  "imp_wood": {
+   "v": [
+    "imp_wood_1",
+    "imp_wood_2",
+    "imp_wood_3",
+    "imp_wood_4"
+   ],
+   "b": "s",
+   "g": 0.8,
+   "p": 0.1,
+   "ref": 6
+  },
+  "imp_glass": {
+   "v": [
+    "imp_glass_1",
+    "imp_glass_2",
+    "imp_glass_3",
+    "imp_glass_4"
+   ],
+   "b": "s",
+   "g": 0.8,
+   "p": 0.1,
+   "ref": 6
+  },
+  "imp_dirt": {
+   "v": [
+    "imp_dirt_1",
+    "imp_dirt_2",
+    "imp_dirt_3",
+    "imp_dirt_4"
+   ],
+   "b": "s",
+   "g": 0.8,
+   "p": 0.1,
+   "ref": 6
+  },
+  "imp_water": {
+   "v": [
+    "imp_water_1",
+    "imp_water_2",
+    "imp_water_3"
+   ],
+   "b": "s",
+   "g": 0.8,
+   "p": 0.1,
+   "ref": 6
+  }
+ },
+ "loops": {
+  "rain_out": {
+   "start": 0.06,
+   "end": 13.06
+  },
+  "rain_in": {
+   "start": 0.06,
+   "end": 12.06
+  },
+  "wind": {
+   "start": 0.06,
+   "end": 5.66
+  },
+  "reactor": {
+   "start": 0.06,
+   "end": 4.46
+  }
+ },
+ "music": {
+  "music_menu": {
+   "loop": 61.0902,
+   "ov": 0.8,
+   "gain": 1
+  },
+  "music_tension": {
+   "loop": 61.7139,
+   "ov": 0.8,
+   "gain": 1
+  },
+  "music_combat": {
+   "loop": 61.9998,
+   "ov": 0.8,
+   "gain": 1
+  }
+ },
+ "reloads": {
+  "ak74": {
+   "dur": 2.556,
+   "ev": [
+    [
+     "rl_ak74_0",
+     0.0008,
+     0.0916
+    ],
+    [
+     "rl_ak74_1",
+     0.1103,
+     0.2223
+    ],
+    [
+     "rl_ak74_2",
+     0.4907,
+     0.2278
+    ],
+    [
+     "rl_ak74_3",
+     0.7818,
+     0.3446
+    ]
+   ]
+  },
+  "steyr": {
+   "dur": 1.987,
+   "ev": [
+    [
+     "rl_steyr_0",
+     0,
+     0.0676
+    ],
+    [
+     "rl_steyr_1",
+     0.3291,
+     0.0168
+    ],
+    [
+     "rl_steyr_2",
+     0.5404,
+     0.0844
+    ],
+    [
+     "rl_steyr_3",
+     0.8283,
+     0.0703
+    ],
+    [
+     "rl_steyr_4",
+     0.9148,
+     0.0884
+    ]
+   ]
+  },
+  "mp5": {
+   "dur": 1.885,
+   "ev": [
+    [
+     "rl_mp5_0",
+     0,
+     0.3552
+    ],
+    [
+     "rl_mp5_1",
+     0.5232,
+     0.3363
+    ],
+    [
+     "rl_mp5_2",
+     0.8097,
+     0.2032
+    ]
+   ]
+  },
+  "m249": {
+   "dur": 4.336,
+   "ev": [
+    [
+     "rl_m249_0",
+     0.0835,
+     0.0325
+    ],
+    [
+     "rl_m249_1",
+     0.1167,
+     0.1299
+    ],
+    [
+     "rl_m249_2",
+     0.2375,
+     0.2224
+    ],
+    [
+     "rl_m249_3",
+     0.3796,
+     0.053
+    ],
+    [
+     "rl_m249_4",
+     0.4423,
+     0.0883
+    ],
+    [
+     "rl_m249_5",
+     0.5216,
+     0.0647
+    ],
+    [
+     "rl_m249_6",
+     0.612,
+     0.2565
+    ],
+    [
+     "rl_m249_7",
+     0.7107,
+     0.009
+    ],
+    [
+     "rl_m249_8",
+     0.7734,
+     0.0099
+    ],
+    [
+     "rl_m249_9",
+     0.8482,
+     0.0771
+    ],
+    [
+     "rl_m249_10",
+     0.9469,
+     0.0885
+    ]
+   ]
+  },
+  "ruger": {
+   "dur": 1.708,
+   "ev": [
+    [
+     "rl_ruger_0",
+     0.0949,
+     0.035
+    ],
+    [
+     "rl_ruger_1",
+     0.2073,
+     0.0833
+    ],
+    [
+     "rl_ruger_2",
+     0.7437,
+     0.16
+    ]
+   ]
+  },
+  "barrett": {
+   "dur": 4.567,
+   "ev": [
+    [
+     "rl_barrett_0",
+     0.0749,
+     0.1389
+    ],
+    [
+     "rl_barrett_1",
+     0.187,
+     0.2652
+    ],
+    [
+     "rl_barrett_2",
+     0.575,
+     0.4929
+    ],
+    [
+     "rl_barrett_3",
+     0.8886,
+     0.2318
+    ]
+   ]
+  },
+  "deagle": {
+   "dur": 1.721,
+   "ev": [
+    [
+     "rl_deagle_0",
+     0,
+     0.0745
+    ],
+    [
+     "rl_deagle_1",
+     0.5659,
+     0.4504
+    ]
+   ]
+  },
+  "colt": {
+   "dur": 1.043,
+   "ev": [
+    [
+     "rl_colt_0",
+     0,
+     0.1947
+    ],
+    [
+     "rl_colt_1",
+     0.3509,
+     0.1192
+    ],
+    [
+     "rl_colt_2",
+     0.7267,
+     0.1774
+    ]
+   ]
+  },
+  "m79": {
+   "dur": 3.001,
+   "ev": [
+    [
+     "rl_m79_0",
+     0.3539,
+     0.0835
+    ],
+    [
+     "rl_m79_1",
+     0.7577,
+     0.581
+    ]
+   ]
+  }
+ },
+ "reloadMap": {
+  "k7": {
+   "src": "ak74"
+  },
+  "lanca": {
+   "src": "ak74",
+   "rate": 0.86
+  },
+  "arco": {
+   "src": "steyr"
+  },
+  "vespa": {
+   "src": "mp5"
+  },
+  "faisca": {
+   "src": "mp5",
+   "rate": 1.12
+  },
+  "trovao": {
+   "src": "m249"
+  },
+  "bigorna": {
+   "src": "m249",
+   "rate": 0.88
+  },
+  "orion": {
+   "src": "barrett"
+  },
+  "vigia": {
+   "src": "ruger"
+  },
+  "p9": {
+   "src": "colt"
+  },
+  "rajada": {
+   "src": "colt",
+   "rate": 1.15
+  },
+  "juiz": {
+   "seq": [
+    [
+     "click",
+     0.1,
+     0.8,
+     1.1
+    ],
+    [
+     "casing",
+     0.27,
+     0.7,
+     1
+    ],
+    [
+     "casing",
+     0.3,
+     0.5,
+     1.1
+    ],
+    [
+     "casing",
+     0.34,
+     0.45,
+     0.92
+    ],
+    [
+     "shellIn",
+     0.45,
+     0.5,
+     1.5
+    ],
+    [
+     "shellIn",
+     0.53,
+     0.45,
+     1.56
+    ],
+    [
+     "shellIn",
+     0.61,
+     0.5,
+     1.45
+    ],
+    [
+     "rl_colt_2",
+     0.79,
+     0.9,
+     0.88
+    ],
+    [
+     "click",
+     0.92,
+     0.7,
+     1.35
+    ]
+   ]
+  },
+  "rpg": {
+   "seq": [
+    [
+     "draw",
+     0.04,
+     0.5,
+     0.8
+    ],
+    [
+     "lawload",
+     0.32,
+     1,
+     0.85
+    ],
+    [
+     "rl_m79_1",
+     0.66,
+     0.9,
+     1
+    ],
+    [
+     "lawlock",
+     0.8,
+     0.8,
+     1
+    ],
+    [
+     "gear",
+     0.88,
+     1.2,
+     0.9
+    ]
+   ]
+  },
+  "martelo": {
+   "seq": [
+    [
+     "gear",
+     0,
+     0.9,
+     1.1
+    ]
+   ]
+  }
+ },
+ "credits": [
+  {
+   "pack": "Soldat base assets",
+   "author": "Soldat team and contributors",
+   "licence": "CC BY 4.0",
+   "url": "https://github.com/Soldat/base",
+   "note": "Gunfire, reload and handling foley, ricochets, fly-bys, distant battle, explosions, death cries, wind. Modified (trimmed, layered, pitch-shifted, filtered, re-encoded)."
+  },
+  {
+   "pack": "Kenney Impact Sounds",
+   "author": "Kenney (kenney.nl)",
+   "licence": "CC0 1.0",
+   "url": "https://github.com/boyquotes/kenney-impact-sounds-for-godot",
+   "note": "Bullet impacts, debris hits, body impacts."
+  },
+  {
+   "pack": "Kenney Interface Sounds",
+   "author": "Kenney (kenney.nl)",
+   "licence": "CC0 1.0",
+   "url": "https://github.com/Calinou/kenney-interface-sounds",
+   "note": "Menu and HUD feedback sounds."
+  },
+  {
+   "pack": "Kenney Sci-Fi Sounds",
+   "author": "Kenney (kenney.nl)",
+   "licence": "CC0 1.0",
+   "url": "https://github.com/boyquotes/kenney-sci-fi-sounds-for-godot",
+   "note": "Explosion layers, quantum ability layers, incoming shell whistle."
+  },
+  {
+   "pack": "Oculus Audio Pack 01",
+   "author": "Oculus VR, LLC",
+   "licence": "CC BY 4.0",
+   "url": "https://github.com/facebookincubator/Meta-open-sound",
+   "note": "Footsteps, rain beds, reactor hum, shell casings, cloth and gear, glass breaks, stingers. \"Oculus Audio Pack 01\" by Oculus VR, LLC, licensed under CC BY 4.0; modified."
+  },
+  {
+   "pack": "Sonic Pi sample library",
+   "author": "Sonic Pi contributors / freesound.org authors",
+   "licence": "CC0 1.0",
+   "url": "https://github.com/sonic-pi-net/sonic-pi",
+   "note": "Sub layers, pings and beeps, heartbeat."
+  },
+  {
+   "pack": "CC0-1.0-Music (FreePD / freesound mirror)",
+   "author": "Rafael Krux; guidofm",
+   "licence": "CC0 1.0",
+   "url": "https://github.com/soundsafari/CC0-1.0-Music",
+   "note": "Score: \"Hidden Truth\", \"Dawn of the Apocalypse\", \"After the End\" by Rafael Krux (FreePD, CC0). Thunder: recording by guidofm (freesound, CC0)."
+  }
+ ]
+}

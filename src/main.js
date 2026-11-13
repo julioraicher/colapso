@@ -29,7 +29,7 @@ class Game {
     this.camera = new THREE.PerspectiveCamera(this.settings.fov, 1, 0.05, 160);
     this.scene.add(new THREE.HemisphereLight(0x6f8fc0, 0x1a1a22, 1.1));
     const moon = new THREE.DirectionalLight(0x9fb8ff, 0.9); moon.position.set(-0.5, 1, 0.35); this.scene.add(moon);
-    this.audio = new Audio(); this.audio.setVolume(this.settings.vol);
+    this.audio = new Audio(); this.audio.setVolume(this.settings.vol); this.audio.game = this;
     this.vm = new Viewmodel();
     this.hud = new HUD(this);
     this.keys = {}; this.mouse = { l: false, r: false, dx: 0, dy: 0 };
@@ -198,7 +198,7 @@ class Game {
   get WD() { return WEAPONS[this.weapons[this.slot].id]; }
   setWeapon(slot) {
     if (!this.weapons[slot]) return;
-    this.slot = slot; this.vm.setWeapon(this.W.id, this.WD); this.reloadT = 0; this.boltT = 0; this.fireCool = 0.3; this.audio.play('reload', null, 0.3, 1.6, 0);
+    this.slot = slot; this.vm.setWeapon(this.W.id, this.WD); this.reloadT = 0; this.boltT = 0; this.fireCool = 0.3; this.audio.play('draw', null, 0.8, 1, 0);
     if (slot === 'gadget') this.vm.hasRocket = this.W.mag > 0;
   }
 
@@ -278,8 +278,7 @@ class Game {
     if (this.boltT > 0) return;
     const t = D.reload * (D.style === 'mag' && W.mag === 0 ? 1.15 : 1); // empty reload is slower (chamber a round)
     this.reloadT = t; this.reloadDur = t; this.ads = Math.min(this.ads, 0.3);
-    this.audio.play('reload', null, 0.5, D.style === 'shell' ? 1.8 : D.style === 'belt' ? 0.7 : 1, 0);
-    if (D.style === 'belt') setTimeout(() => this.audio.play('reload', null, 0.4, 0.8, 0), t * 500);
+    this.audio.reload(W.id, D, t);
   }
   playerFire() {
     const W = this.W, D = this.WD, p = this.player;
@@ -306,9 +305,9 @@ class Game {
     this.vm.fire(D.kick);
     this.fx.muzzle(muzzle);
     this.audio.play(D.snd, null, 0.9, 1, 0.35);
-    if (D.bolt && W.mag > 0) { this.boltT = D.bolt; this.boltDur = D.bolt; setTimeout(() => this.audio.play('reload', null, 0.35, 1.9, 0), D.bolt * 300); }
+    if (D.bolt && W.mag > 0) { this.boltT = D.bolt; this.boltDur = D.bolt; setTimeout(() => this.audio.play('bolt', null, 0.9, 1, 0), D.bolt * 300); }
     if (D.rocket) { this.vm.hasRocket = false; }
-    if (D.type === 'shotgun') setTimeout(() => this.audio.play('reload', null, 0.3, 2.4, 0), 250);
+    if (D.type === 'shotgun') setTimeout(() => this.audio.play('pump', null, 0.9, 1, 0), 250);
     // neighbours hear you: reveal on enemy minimap / alert bots nearby
     this.pent.spottedT = 2.5;
     for (const b of this.bots) if (b.alive && b.team === 1 && b.pos.distanceTo(p.pos) < 40 && !b.target) { b.lastSeen = p.pos.clone(); b.lastSeenT = this.time; }
@@ -380,7 +379,7 @@ class Game {
   }
   bulletHit(b, res, d) {
     const D = b.D, shooter = b.shooter, end = res.point; const dist = b.dist + res.t;
-    if (b.rocket) { this.explode(end.clone().addScaledVector(d, -0.2), 3.3, shooter, 1.6); return; }
+    if (b.rocket) { this.explode(end.clone().addScaledVector(d, -0.2), 3.3, shooter, 1.6, 'explosion_rocket'); return; }
     if (res.e) {
       const hitE = res.e;
       // kinetic energy scaling: damage follows (v/v0)² past the falloff curve start
@@ -397,7 +396,7 @@ class Game {
       this.fx.impact(end, n, wh.m);
       const broke = this.world.damageVoxel(wh.x, wh.y, wh.z, D.vox);
       if (broke) { this.fx.debris(end.x, end.y, end.z, n.x * 2 + d.x, 2, n.z * 2 + d.z, broke, 0.5, 2.5); if (broke === MAT.GLASS) this.audio.play('debris', end, 0.4, 2.2); if (broke === 25) this.barrelBoom(wh.x, wh.y, wh.z, shooter); }
-      if (Math.random() < 0.25) this.audio.play(wh.m === MAT.METAL || wh.m === MAT.RUST ? 'ricochet' : 'impact', end, 0.5);
+      this.audio.impact(wh.m, end);
     }
   }
   // Explosive barrels (material 25): chain reactions with a short fuse so they cascade visibly
@@ -408,7 +407,7 @@ class Game {
     if (best) { best.used = true; c = new THREE.Vector3(best.x, best.y, best.z); }
     else if (this.time - (this.lastBarrelT || -9) < 0.2) return;
     this.lastBarrelT = this.time;
-    setTimeout(() => { if (this.state === 'play' || this.state === 'deploy') { this.explode(c, 3.0, owner || this.pent, 1.3); this.fx.explosion(c, 4); } }, 120 + Math.random() * 150);
+    setTimeout(() => { if (this.state === 'play' || this.state === 'deploy') { this.explode(c, 3.0, owner || this.pent, 1.3, 'explosion_barrel'); this.fx.explosion(c, 4); } }, 120 + Math.random() * 150);
   }
   onKill(killer, victim, head, dist = 0) {
     if (!killer) return;
@@ -445,7 +444,7 @@ class Game {
     if (this.resT > 2.5) { this.resT = 0; let got = false;
       for (const k of ['primary', 'secondary']) { const W = this.weapons[k], D = WEAPONS[W.id]; if (W.reserve < D.reserve) { W.reserve = Math.min(D.reserve, W.reserve + Math.ceil(D.mag / 3)); got = true; } }
       if (this.nades < 2) { this.nades++; got = true; }
-      if (got) this.audio.play('reload', null, 0.25, 1.4, 0);
+      if (got) this.audio.play('pickup', null, 0.7, 1, 0);
     }
   }
   playerHurt(d, from) {
@@ -492,12 +491,12 @@ class Game {
       if (g.t <= 0) { this.scene.remove(g.mesh); this.grenades.splice(i, 1); this.explode(g.p, 2.8, g.owner); }
     }
   }
-  explode(c, r, owner, power = 1) {
+  explode(c, r, owner, power = 1, snd = 'explosion') {
     owner = owner || this.pent;
     const res = this.world.explode(c, r, power);
     for (const q of res.removed) if (q.m === 25) { this.barrelBoom(q.x, q.y, q.z, owner); }
     this.fx.explosion(c, r);
-    this.audio.play('explosion', c, 1.6, 1, 0.5);
+    this.audio.play(snd, c, 1.6, 1, 0.5);
     if (res.removed.length > 10) this.audio.play('debris', c, 1, 1);
     // debris: sample removed voxels
     const step = Math.max(1, Math.floor(res.removed.length / 90));
@@ -707,7 +706,7 @@ class Game {
         const [c, r] = seq[E.k];
         const res = this.world.explode(c, r, 2.5);
         this.fx.explosion(c, r * 1.4); this.fx.quantum(c, 60, [1, 0.3, 0.9]);
-        this.audio.play('explosion', c, 2.5, 0.8, 0.8);
+        this.audio.play('explosion_big', c, 2.5, 0.8, 0.8);
         const step = Math.max(1, Math.floor(res.removed.length / 120));
         for (let i = 0; i < res.removed.length; i += step) { const q = res.removed[i]; const px = (q.x + .5) * VS, py = (q.y + .5) * VS, pz = (q.z + .5) * VS; const dx = px - c.x, dy = py - c.y, dz = pz - c.z, L = Math.hypot(dx, dy, dz) + .1; this.fx.debris(px, py, pz, dx / L * 12, dy / L * 10 + 6, dz / L * 12, q.m, 0.6 + Math.random() * 0.6, 6); }
         for (const e of this.entities) { if (!e.alive) continue; const d = e.pos.distanceTo(c); if (d < r * 2.2) { const was = e.alive; e.hurt(200 * (1 - d / (r * 2.2)) + 20, this.time, null, { blast: c }); if (e.isBot && was && !e.alive) this.hud.feed('REATOR', e.name, -1, false, false, false); } }
@@ -821,7 +820,7 @@ class Game {
         p.yaw += sx - (this.swayPrev ? this.swayPrev[0] : 0); p.pitch += sy - (this.swayPrev ? this.swayPrev[1] : 0); this.swayPrev = [sx, sy];
         this.hud.breath(true, hold, this.breath);
       } else { this.swayPrev = null; this.breath = Math.min(4, (this.breath ?? 4) + dt); this.hud.breath(false); }
-      if (this.boltT > 0) { this.boltT -= dt; if (this.boltT <= 0 && this.W.mag > 0) this.audio.play('reload', null, 0.25, 2.2, 0); }
+      if (this.boltT > 0) { this.boltT -= dt; if (this.boltT <= 0 && this.W.mag > 0) this.audio.play('boltFwd', null, 0.9, 1, 0); }
       if (this.syringeT > 0) { this.syringeT -= dt; p.speedMul = 1.25; } else p.speedMul = 1;
       const wantAds = this.mouse.r && !p.sprint && this.reloadT <= 0;
       this.ads += ((wantAds ? 1 : 0) - this.ads) * Math.min(1, dt * 14);
@@ -835,7 +834,7 @@ class Game {
         this.reloadT -= dt;
         if (this.reloadT <= 0) {
           const W = this.W, D = this.WD;
-          if (D.style === 'shell') { if (W.reserve > 0 && W.mag < D.mag) { W.mag++; W.reserve--; this.audio.play('impact', null, 0.3, 1.5, 0); if (W.mag < D.mag && W.reserve > 0) { this.reloadT = D.reload; this.reloadDur = D.reload; } } }
+          if (D.style === 'shell') { if (W.reserve > 0 && W.mag < D.mag) { W.mag++; W.reserve--; this.audio.play('shellIn', null, 0.9, 1, 0); if (W.mag < D.mag && W.reserve > 0) { this.reloadT = D.reload; this.reloadDur = D.reload; } } }
           else { const need = D.mag - W.mag, take = Math.min(need, W.reserve); W.mag += take; W.reserve -= take; this.vm.hasRocket = true; if (D.bolt) { this.boltT = D.bolt * 0.8; this.boltDur = D.bolt * 0.8; } }
         }
       }
