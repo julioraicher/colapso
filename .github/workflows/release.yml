@@ -1,12 +1,13 @@
 name: release
 on:
   push:
-    tags: ['v*']
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: write
 jobs:
   build:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[release]')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -16,14 +17,15 @@ jobs:
       - run: node package-win.mjs
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          name: COLAPSO ${{ github.ref_name }}
+          tag_name: v1.0.${{ github.run_number }}
+          name: COLAPSO v1.0.${{ github.run_number }}
           make_latest: true
           body_path: RELEASE_NOTES.md
           files: |
             out/Colapso-windows.zip
             out/Colapso-navegador.zip
   pages:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[release]')
     runs-on: ubuntu-latest
     permissions: { pages: write, id-token: write, contents: read }
     environment: { name: github-pages }

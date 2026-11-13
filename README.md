@@ -37,7 +37,7 @@ node test/balance.cjs  # bots vs bots, simetria de times
 npm run package        # out/Colapso-windows.zip (Electron win32-x64)
 ```
 
-Push de uma tag `v*` dispara o GitHub Actions que empacota e publica a release.
+Um commit em `main` com `[release]` na mensagem (ou execução manual do workflow) dispara o GitHub Actions que empacota e publica a release.
 
 Estrutura: `src/world.js` (voxels, luz, destruição, raycast DDA), `src/mapgen.js` (mapa procedural), `src/player.js`, `src/weapons.js`, `src/ai.js`, `src/abilities.js`, `src/audio.js`, `src/fx.js`, `src/hud.js`, `src/main.js`.
 
